@@ -96,9 +96,9 @@ jobs:
         run: |
           cd target/${{ matrix.target }}/release
           if [ "${{ runner.os }}" = "Windows" ]; then
-            7z a ../../../${{ matrix.name }}.zip ${{ matrix.name }}
+            7z a ../../../${{ matrix.name }}.zip twars-url2md.exe
           else
-            tar czf ../../../${{ matrix.name }}.tar.gz ${{ matrix.name }}
+            tar czf ../../../${{ matrix.name }}.tar.gz twars-url2md
           fi
           cd -
 
