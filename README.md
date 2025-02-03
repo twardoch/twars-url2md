@@ -1,7 +1,8 @@
 # twars-url2md
 
-[![CI](https://github.com/twardoch/twars-url2md/workflows/CI/badge.svg)](https://github.com/twardoch/twars-url2md/actions)
 [![Crates.io](https://img.shields.io/crates/v/twars-url2md)](https://crates.io/crates/twars-url2md)
+![GitHub Release Date](https://img.shields.io/github/release-date/twardoch/twars-url2md)
+![GitHub commits since latest release](https://img.shields.io/github/commits-since/twardoch/twars-url2md/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **twars-url2md** is a robust command-line tool written in Rust that fetches web pages, cleans up their HTML content, and converts them into clean Markdown. It leverages [Monolith](https://github.com/Y2Z/monolith) for content extraction and [htmd](https://crates.io/crates/htmd) for the conversion process, ensuring that the resulting Markdown preserves the document's logical structure.
@@ -66,6 +67,7 @@ cargo install twars-url2md
 ### From Binary Releases
 
 Pre-built binaries are available for:
+
 - Linux (x86_64)
 - macOS (Universal binary for Intel and Apple Silicon)
 - Windows (x86_64)
@@ -105,12 +107,14 @@ The tool accepts URLs via a file or standard input and converts each page into a
 ### Output Organization
 
 For URLs like `scheme://username:password@host:port/path?query#fragment`:
+
 - Username, password, port, query parameters, and fragments are ignored
 - Files are organized by host and path components
 - URLs ending in `/` or with no path use `index.md`
 - Other URLs use the last path component with `.md` extension
 
 Example structure:
+
 ```
 output/
 ├── example.com/
@@ -172,6 +176,7 @@ cargo test test_name
 ### Dependencies
 
 Key crates used:
+
 - `monolith`: Web content extraction
 - `htmd`: HTML to Markdown conversion
 - `tokio`: Async runtime
@@ -184,6 +189,7 @@ Key crates used:
 ## CI/CD and Release Process
 
 GitHub Actions workflow includes:
+
 - Automated testing on pull requests
 - Code quality checks (clippy, fmt)
 - Release creation for version tags
@@ -200,6 +206,7 @@ GitHub Actions workflow includes:
 6. Submit a pull request
 
 Please follow:
+
 - Rust coding conventions
 - Comprehensive test coverage
 - Clear commit messages
