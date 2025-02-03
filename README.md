@@ -92,4 +92,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Author
 
-Adam Twardoch (@twardoch) 
+Adam Twardoch (@twardoch)

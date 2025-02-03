@@ -92,7 +92,7 @@ struct Cli {
     /// Output destination:
     /// - For single URL: path to output file (e.g., 'output.md')
     /// - For multiple URLs: directory path (e.g., 'output/')
-    /// If not provided, output goes to stdout
+    ///   If not provided, output goes to stdout
     #[arg(short, long, value_name = "PATH")]
     output: Option<PathBuf>,
 
