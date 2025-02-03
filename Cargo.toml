@@ -1,0 +1,30 @@
+[package]
+name = "twars-url2md"
+version = "0.1.0"
+edition = "2021"
+authors = ["Adam"]
+description = "CLI tool to convert web pages to Markdown using Monolith and htmd"
+
+[dependencies]
+htmd = "=0.1.6"
+clap = { version = "4.5.1", features = ["derive"] }
+anyhow = "1.0.79"
+url = "2.5.2"
+reqwest = { version = "0.12.7", features = ["default-tls", "gzip", "brotli", "deflate"] }
+html5ever = "0.27.0"
+markup5ever_rcdom = "0.3.0"
+encoding_rs = "0.8.34"
+base64 = "0.22.1"
+sha2 = "0.10.8"
+openssl = { version = "0.10.64", features = ["vendored"] }
+regex = { version = "1.10.6", default-features = false, features = ["std", "perf-dfa", "unicode-perl"] }
+cssparser = "0.34.0"
+monolith = { path = "../repos/monolith" }
+tokio = { version = "1.36.0", features = ["full"] }
+futures = "0.3.30"
+indicatif = "0.17.8"
+num_cpus = "1.16.0"
+
+[[bin]]
+name = "twars-url2md"
+path = "src/main.rs"

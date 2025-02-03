@@ -1,0 +1,23 @@
+._*
+.apdisk
+.AppleDB
+.AppleDesktop
+.AppleDouble
+.com.apple.timemachine.donotpresent
+.DocumentRevisions-V100
+.DS_Store
+.fseventsd
+.idea/
+.LSOverride
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.vscode/
+*.pdb
+**/*.rs.bk
+debug/
+Icon
+Network Trash Folder
+target/
+Temporary Items
