@@ -35,49 +35,68 @@ const VERSION: &str = concat!(
 /// removing styles and preserving content structure.
 #[derive(Parser)]
 #[command(
-    author,
+    name = "twars-url2md",
+    author = "Adam Twardoch",
     version = VERSION,
-    about,
-    long_about = "
-A command-line tool that downloads web pages and converts them to clean Markdown format.
-It removes styles while preserving content structure, and supports both single and batch processing.
+    about = "Convert web pages to clean Markdown format while preserving content structure",
+    long_about = "\
+twars-url2md is a command-line tool that downloads web pages and converts them to clean Markdown.
+It removes unnecessary styles and formatting while preserving the content structure.
 
-EXAMPLES:
-    # Convert single URL to stdout
+Key Features:
+• Removes style tags and attributes for clean output
+• Preserves content structure and hierarchy
+• Supports batch processing of multiple URLs
+• Creates organized directory structure based on URLs
+• Shows progress bar for multiple URLs
+
+Usage Examples:
+  # Convert a single URL and print to stdout:
     twars-url2md https://example.com
 
-    # Save single URL to file
+  # Save a single URL to a file:
     twars-url2md https://example.com -o page.md
 
-    # Process multiple URLs to directory
+  # Process multiple URLs into a directory:
     twars-url2md https://example.com https://another.com -o output/
 
-    # Process URLs from file
+  # Process URLs from a file (one URL per line):
     twars-url2md -f urls.txt -o output/
 
-    # Read URLs from stdin
+  # Read URLs from stdin:
     echo 'https://example.com' | twars-url2md --stdin -o output/
-"
+
+Output Organization:
+  When processing multiple URLs with an output directory, the tool creates a structured layout:
+    output/
+    ├── example.com/
+    │   └── path/to/page.md
+    └── another.com/
+        └── index.md"
 )]
 struct Cli {
-    /// URLs to process (e.g., 'https://example.com')
+    /// One or more URLs to process (e.g., 'https://example.com')
+    /// Required unless using --input-file or --stdin
     #[arg(required_unless_present_any = ["input_file", "stdin"], value_name = "URLS")]
     urls: Vec<String>,
 
-    /// File containing URLs, one per line
-    #[arg(short = 'f', long, value_name = "FILE")]
+    /// Read URLs from a file, one URL per line
+    #[arg(short = 'f', long = "input-file", value_name = "FILE")]
     input_file: Option<PathBuf>,
 
-    /// Read URLs from stdin (space or newline separated)
+    /// Read URLs from standard input (space or newline separated)
+    /// Cannot be used together with URL arguments
     #[arg(long, conflicts_with = "urls")]
     stdin: bool,
 
-    /// Output file (for single URL) or directory (for multiple URLs).
-    /// If not provided, outputs to stdout.
+    /// Output destination:
+    /// - For single URL: path to output file (e.g., 'output.md')
+    /// - For multiple URLs: directory path (e.g., 'output/')
+    /// If not provided, output goes to stdout
     #[arg(short, long, value_name = "PATH")]
     output: Option<PathBuf>,
 
-    /// Show verbose output including processing details
+    /// Show detailed progress and debug information
     #[arg(short, long)]
     verbose: bool,
 }
