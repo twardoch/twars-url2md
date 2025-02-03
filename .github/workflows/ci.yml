@@ -7,6 +7,10 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: write
+  packages: write
+
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-D warnings"
@@ -17,21 +21,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      
+
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
-      
+
       - name: Check formatting
         run: cargo fmt --check
-      
+
       - name: Run clippy
         run: cargo clippy --all-targets --all-features
-      
+
       - name: Run tests
         run: cargo test --all-features
 
@@ -40,17 +44,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-      
+
       - name: Install cargo-audit
         uses: actions-rs/install@v0.1
         with:
           crate: cargo-audit
           version: latest
           use-tool-cache: true
-      
+
       - name: Run security audit
         uses: actions-rs/audit-check@v1
         with:
@@ -63,13 +67,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-      
+
       - name: Build Release
         run: cargo build --release --all-features
-      
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -80,7 +84,7 @@ jobs:
           release_name: Release ${{ github.ref }}
           draft: false
           prerelease: false
-      
+
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
@@ -98,11 +102,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-      
+
       - name: Publish to crates.io
         run: cargo publish --token ${CRATES_TOKEN}
         env:
-          CRATES_TOKEN: ${{ secrets.CRATES_IO_TOKEN }} 
+          CRATES_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
