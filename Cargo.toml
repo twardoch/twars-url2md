@@ -1,33 +1,136 @@
 [package]
 name = "twars-url2md"
-version = "1.0.2"  # Improved help message display
+version = "1.0.4"
 edition = "2021"
-authors = ["Adam"]
-description = "CLI tool to convert web pages to Markdown using Monolith and htmd"
+authors = ["Adam Twardoch <adam+github@twardoch.com>"]
+description = "A powerful CLI tool that fetches web pages and converts them to clean Markdown format using Monolith for content extraction and htmd for conversion"
+documentation = "https://github.com/twardoch/twars-url2md"
+homepage = "https://github.com/twardoch/twars-url2md"
+repository = "https://github.com/twardoch/twars-url2md"
+license = "MIT"
+readme = "README.md"
+keywords = ["markdown", "html", "converter", "web", "cli"]
+categories = ["command-line-utilities", "text-processing", "web-programming"]
+rust-version = "1.70.0"
 build = "build.rs"
 
-[build-dependencies]
-vergen-gitcl = "1.0.5"  # Using vergen-gitcl for git command line operations
 
-[dependencies]
-htmd = "=0.1.6"
-clap = { version = "4.5.1", features = ["derive"] }
-anyhow = "1.0.79"
-url = "2.5.2"
-reqwest = { version = "0.12.7", features = ["default-tls", "gzip", "brotli", "deflate"] }
-html5ever = "0.27.0"
-markup5ever_rcdom = "0.3.0"
-encoding_rs = "0.8.34"
-base64 = "0.22.1"
-sha2 = "0.10.8"
-openssl = { version = "0.10.64", features = ["vendored"] }
-regex = { version = "1.10.6", default-features = false, features = ["std", "perf-dfa", "unicode-perl"] }
-cssparser = "0.34.0"
-monolith = "2.8.3"
-tokio = { version = "1.36.0", features = ["full"] }
-futures = "0.3.30"
-indicatif = "0.17.8"
-num_cpus = "1.16.0"
+[package.metadata]
+msrv = "1.70.0"
+
+
+[badges.maintenance]
+status = "actively-developed"
+
+
+[build-dependencies.vergen-gitcl]
+version = "1.0.5"
+features = []
+
+
+[dependencies.htmd]
+version = "0.1.6"
+features = []
+
+
+[dependencies.monolith]
+version = "2.8.3"
+features = []
+
+
+[dependencies.clap]
+version = "4.5.1"
+features = ["derive"]
+
+
+[dependencies.anyhow]
+version = "1.0.79"
+features = []
+
+
+[dependencies.url]
+version = "2.5.2"
+features = []
+
+
+[dependencies.reqwest]
+version = "0.12.7"
+features = ["default-tls", "gzip", "brotli", "deflate"]
+
+
+[dependencies.openssl]
+version = "0.10.64"
+features = ["vendored"]
+
+
+[dependencies.html5ever]
+version = "0.27.0"
+features = []
+
+
+[dependencies.markup5ever_rcdom]
+version = "0.3.0"
+features = []
+
+
+[dependencies.encoding_rs]
+version = "0.8.34"
+features = []
+
+
+[dependencies.base64]
+version = "0.22.1"
+features = []
+
+
+[dependencies.sha2]
+version = "0.10.8"
+features = []
+
+
+[dependencies.regex]
+version = "1.10.6"
+default-features = false
+features = ["std", "perf-dfa", "unicode-perl"]
+
+
+[dependencies.cssparser]
+version = "0.34.0"
+features = []
+
+
+[dependencies.tokio]
+version = "1.36.0"
+features = ["full"]
+
+
+[dependencies.futures]
+version = "0.3.30"
+features = []
+
+
+[dependencies.indicatif]
+version = "0.17.8"
+features = []
+
+
+[dependencies.num_cpus]
+version = "1.16.0"
+features = []
+
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+opt-level = 3
+
+
+[profile.dev]
+opt-level = 0
+debug = true
+
 
 [[bin]]
 name = "twars-url2md"
