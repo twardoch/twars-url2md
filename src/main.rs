@@ -1,18 +1,19 @@
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::io::{self, BufRead};
 use anyhow::{Context, Result};
 use clap::Parser;
-use url::Url;
-use reqwest::Client;
-use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
-use html5ever::serialize::{serialize, SerializeOpts};
-use markup5ever_rcdom::{SerializableHandle, NodeData, Handle};
-use indicatif::{ProgressBar, ProgressStyle};
 use futures::future::join_all;
+use html5ever::serialize::{serialize, SerializeOpts};
+use indicatif::{ProgressBar, ProgressStyle};
+use markup5ever_rcdom::{Handle, NodeData, SerializableHandle};
+use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
+use reqwest::Client;
+use std::fs;
+use std::io::{self, BufRead};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use url::Url;
 
-const USER_AGENT_STRING: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:123.0) Gecko/20100101 Firefox/123.0";
+const USER_AGENT_STRING: &str =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:123.0) Gecko/20100101 Firefox/123.0";
 
 /// Convert web pages to Markdown using Monolith and htmd
 #[derive(Parser)]
@@ -45,15 +46,12 @@ fn create_output_path(url: &Url, base_dir: &Path) -> Result<PathBuf> {
     let mut path_components = vec![host];
 
     // Split path into components, ignoring empty parts
-    let path_segments: Vec<_> = url.path()
-        .split('/')
-        .filter(|s| !s.is_empty())
-        .collect();
+    let path_segments: Vec<_> = url.path().split('/').filter(|s| !s.is_empty()).collect();
 
     if !path_segments.is_empty() {
         // Add all path components except the last one
         path_components.extend(&path_segments[..path_segments.len() - 1]);
-        
+
         // Create the directory structure
         let dir_path = base_dir.join(path_components.join("/"));
         fs::create_dir_all(&dir_path)
@@ -87,12 +85,16 @@ fn create_output_path(url: &Url, base_dir: &Path) -> Result<PathBuf> {
 
 fn remove_styles(node: &Handle) {
     match node.data {
-        NodeData::Element { ref name, ref attrs, .. } => {
+        NodeData::Element {
+            ref name,
+            ref attrs,
+            ..
+        } => {
             // Remove style tags
             if name.local.as_ref() == "style" {
                 node.children.borrow_mut().clear();
             }
-            
+
             // Remove style attributes
             let mut attrs = attrs.borrow_mut();
             attrs.retain(|attr| attr.name.local.as_ref() != "style");
@@ -108,8 +110,7 @@ fn remove_styles(node: &Handle) {
 
 async fn process_url_async(url: String, output_path: Option<PathBuf>) -> Result<()> {
     // Parse the URL
-    let url_parsed = Url::parse(&url)
-        .with_context(|| format!("Invalid URL: {}", url))?;
+    let url_parsed = Url::parse(&url).with_context(|| format!("Invalid URL: {}", url))?;
 
     // Create a client for fetching assets
     let mut headers = HeaderMap::new();
@@ -120,19 +121,22 @@ async fn process_url_async(url: String, output_path: Option<PathBuf>) -> Result<
         .context("Failed to create HTTP client")?;
 
     // Fetch the initial HTML
-    let response = client.get(url_parsed.as_str())
+    let response = client
+        .get(url_parsed.as_str())
         .send()
         .await
         .with_context(|| format!("Failed to fetch URL: {}", url))?;
-    
-    let content_type = response.headers()
+
+    let content_type = response
+        .headers()
         .get(reqwest::header::CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
         .unwrap_or("text/html; charset=utf-8");
-    
+
     let (_, charset, _) = monolith::utils::parse_content_type(content_type);
-    
-    let html_bytes = response.bytes()
+
+    let html_bytes = response
+        .bytes()
         .await
         .with_context(|| format!("Failed to read response body from URL: {}", url))?;
 
@@ -153,9 +157,8 @@ async fn process_url_async(url: String, output_path: Option<PathBuf>) -> Result<
     .with_context(|| "Failed to serialize HTML")?;
 
     // Convert HTML to string
-    let html = String::from_utf8(html_buf)
-        .with_context(|| "Failed to convert HTML to UTF-8")?;
-    
+    let html = String::from_utf8(html_buf).with_context(|| "Failed to convert HTML to UTF-8")?;
+
     // Convert to Markdown using htmd
     let markdown = htmd::convert(&html)
         .with_context(|| format!("Failed to convert HTML to Markdown for URL: {}", url))?;
@@ -168,7 +171,7 @@ async fn process_url_async(url: String, output_path: Option<PathBuf>) -> Result<
     } else {
         println!("{}", markdown);
     }
-    
+
     Ok(())
 }
 
@@ -181,7 +184,14 @@ async fn main() -> Result<()> {
     } else {
         Cli::try_parse_from(args).map_err(|e| {
             // Only show usage errors, not the fancy clap output
-            anyhow::anyhow!("{}", e.render().to_string().lines().next().unwrap_or("Invalid usage"))
+            anyhow::anyhow!(
+                "{}",
+                e.render()
+                    .to_string()
+                    .lines()
+                    .next()
+                    .unwrap_or("Invalid usage")
+            )
         })?
     };
 
@@ -192,7 +202,12 @@ async fn main() -> Result<()> {
     if let Some(input_file) = cli.input_file {
         let content = fs::read_to_string(&input_file)
             .with_context(|| format!("Failed to read input file: {}", input_file.display()))?;
-        urls.extend(content.lines().filter(|l| !l.trim().is_empty()).map(String::from));
+        urls.extend(
+            content
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .map(String::from),
+        );
     }
 
     // Add URLs from stdin if requested
@@ -204,7 +219,7 @@ async fn main() -> Result<()> {
             urls.extend(
                 line.split_whitespace()
                     .filter(|s| !s.is_empty())
-                    .map(String::from)
+                    .map(String::from),
             );
         }
     }
@@ -218,16 +233,24 @@ async fn main() -> Result<()> {
     urls.dedup();
 
     let single_file = urls.len() == 1;
-    let output_base = cli.output.clone().map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
+    let output_base = cli
+        .output
+        .clone()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
     let has_output = cli.output.is_some();
 
     // Create progress bar
     let pb = if urls.len() > 1 {
         let pb = ProgressBar::new(urls.len() as u64);
-        pb.set_style(ProgressStyle::default_bar()
-            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})")
-            .unwrap()
-            .progress_chars("#>-"));
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template(
+                    "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
+                )
+                .unwrap()
+                .progress_chars("#>-"),
+        );
         Some(pb)
     } else {
         None
@@ -235,29 +258,32 @@ async fn main() -> Result<()> {
 
     // Process URLs in parallel
     let pb = Arc::new(pb);
-    let tasks: Vec<_> = urls.into_iter().map(|url| {
-        let pb = Arc::clone(&pb);
-        let output_base = output_base.clone();
-        let verbose = cli.verbose;
-        
-        tokio::spawn(async move {
-            if verbose {
-                eprintln!("Processing: {}", url);
-            }
-            let url_parsed = Url::parse(&url)?;
-            let out_path = if single_file && has_output && !output_base.is_dir() {
-                Some(output_base)
-            } else {
-                Some(create_output_path(&url_parsed, &output_base)?)
-            };
-            let result = process_url_async(url, out_path).await;
+    let tasks: Vec<_> = urls
+        .into_iter()
+        .map(|url| {
+            let pb = Arc::clone(&pb);
+            let output_base = output_base.clone();
+            let verbose = cli.verbose;
 
-            if let Some(pb) = &*pb {
-                pb.inc(1);
-            }
-            result
+            tokio::spawn(async move {
+                if verbose {
+                    eprintln!("Processing: {}", url);
+                }
+                let url_parsed = Url::parse(&url)?;
+                let out_path = if single_file && has_output && !output_base.is_dir() {
+                    Some(output_base)
+                } else {
+                    Some(create_output_path(&url_parsed, &output_base)?)
+                };
+                let result = process_url_async(url, out_path).await;
+
+                if let Some(pb) = &*pb {
+                    pb.inc(1);
+                }
+                result
+            })
         })
-    }).collect();
+        .collect();
 
     // Wait for all tasks to complete
     let results = join_all(tasks).await;
