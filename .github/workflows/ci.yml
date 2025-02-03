@@ -133,6 +133,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Publish to crates.io
-        run: cargo publish --token ${CRATES_TOKEN}
+        run: cargo publish --token ${CRATES_TOKEN} --allow-dirty
         env:
           CRATES_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
