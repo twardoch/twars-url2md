@@ -1,0 +1,14 @@
+Check out these sites:
+https://example.com
+http://test.org
+Visit https://rust-lang.org for more!
+
+Some more examples:
+- https://github.com/example/repo
+- http://blog.example.com/post/123
+- https://docs.example.com/guide#section
+
+And some invalid ones that should be ignored:
+ftp://example.com
+not-a-url.com
+www.example.com

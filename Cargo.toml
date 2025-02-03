@@ -1,16 +1,20 @@
 [package]
 name = "twars-url2md"
-version = "1.1.1"
+version = "1.1.4"
 edition = "2021"
-authors = ["Adam Twardoch <adam+github@twardoch.com>"]
+authors = [ "Adam Twardoch <adam+github@twardoch.com>" ]
 description = "A powerful CLI tool that fetches web pages and converts them to clean Markdown format using Monolith for content extraction and htmd for conversion"
 documentation = "https://github.com/twardoch/twars-url2md"
 homepage = "https://github.com/twardoch/twars-url2md"
 repository = "https://github.com/twardoch/twars-url2md"
 license = "MIT"
 readme = "README.md"
-keywords = ["markdown", "html", "converter", "web", "cli"]
-categories = ["command-line-utilities", "text-processing", "web-programming"]
+keywords = [ "markdown", "html", "converter", "web", "cli" ]
+categories = [
+"command-line-utilities",
+"text-processing",
+"web-programming"
+]
 rust-version = "1.70.0"
 build = "build.rs"
 
@@ -23,85 +27,25 @@ msrv = "1.70.0"
 status = "actively-developed"
 
 
-[build-dependencies.vergen-gitcl]
-version = "1.0.5"
-features = []
+[dependencies]
+base64 = "0.22"
+cssparser = "0.34"
+encoding_rs = "0.8"
+linkify = "0.10"
+markup5ever = { version = "0.11", features = [] }
+markup5ever_rcdom = { version = "0.2", features = [] }
+num_cpus = "1.16"
+sha2 = "0.10"
 
 
-[dependencies.htmd]
-version = "0.1.6"
-features = []
-
-
-[dependencies.monolith]
-version = "2.8.3"
+[dependencies.anyhow]
+version = "1.0"
 features = []
 
 
 [dependencies.clap]
-version = "4.5.1"
+version = "4.5"
 features = ["derive"]
-
-
-[dependencies.anyhow]
-version = "1.0.79"
-features = []
-
-
-[dependencies.url]
-version = "2.5.2"
-features = []
-
-
-[dependencies.reqwest]
-version = "0.12.7"
-features = ["default-tls", "gzip", "brotli", "deflate"]
-
-
-[dependencies.openssl]
-version = "0.10.64"
-features = ["vendored"]
-
-
-[dependencies.html5ever]
-version = "0.27.0"
-features = []
-
-
-[dependencies.markup5ever_rcdom]
-version = "0.3.0"
-features = []
-
-
-[dependencies.encoding_rs]
-version = "0.8.34"
-features = []
-
-
-[dependencies.base64]
-version = "0.22.1"
-features = []
-
-
-[dependencies.sha2]
-version = "0.10.8"
-features = []
-
-
-[dependencies.regex]
-version = "1.10.6"
-default-features = false
-features = ["std", "perf-dfa", "unicode-perl"]
-
-
-[dependencies.cssparser]
-version = "0.34.0"
-features = []
-
-
-[dependencies.tokio]
-version = "1.36.0"
-features = ["full"]
 
 
 [dependencies.futures]
@@ -109,14 +53,60 @@ version = "0.3.30"
 features = []
 
 
+[dependencies.html5ever]
+version = "0.26"
+features = []
+
+
+[dependencies.htmd]
+version = "0.1"
+features = []
+
+
 [dependencies.indicatif]
-version = "0.17.8"
-features = []
+version = "0.17"
+features = [ ]
 
 
-[dependencies.num_cpus]
-version = "1.16.0"
-features = []
+[dependencies.monolith]
+version = "2.8"
+features = [ ]
+
+
+[dependencies.openssl]
+version = "0.10"
+features = [ "vendored" ]
+
+
+[dependencies.regex]
+version = "1.10"
+default-features = false
+features = [ "std", "perf-dfa", "unicode-perl" ]
+
+
+[dependencies.reqwest]
+version = "0.12"
+features = [ "default-tls", "gzip", "brotli", "deflate" ]
+
+
+[dependencies.tokio]
+version = "1.36"
+features = [ "full" ]
+
+
+[dependencies.url]
+version = "2.5"
+features = [ ]
+
+
+[dev-dependencies]
+tempfile = "3.10"
+mockito = "1.2"
+
+
+[build-dependencies.built]
+version = "0.7"
+features = [ "chrono" ]
 
 
 [profile.release]
