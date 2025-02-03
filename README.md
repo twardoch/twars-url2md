@@ -1,5 +1,9 @@
 # twars-url2md
 
+[![CI](https://github.com/twardoch/twars-url2md/workflows/CI/badge.svg)](https://github.com/twardoch/twars-url2md/actions)
+[![Crates.io](https://img.shields.io/crates/v/twars-url2md)](https://crates.io/crates/twars-url2md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A command-line tool that converts web pages to Markdown. It fetches HTML content, processes it to remove unnecessary styling, and converts it to clean Markdown format.
 
 ## Features
@@ -21,6 +25,10 @@ A command-line tool that converts web pages to Markdown. It fetches HTML content
 ```bash
 cargo install twars-url2md
 ```
+
+### From Binary Releases
+
+Pre-built binaries are available for Linux, macOS, and Windows on the [Releases page](https://github.com/twardoch/twars-url2md/releases).
 
 ### From source
 
@@ -70,9 +78,17 @@ Created: example.com/index.md
 Created: example.org/foo/bar.md
 ```
 
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a list of changes.
+
 ## License
 
-MIT License
+MIT License - see [LICENSE](LICENSE) for details.
 
 ## Author
 
