@@ -245,17 +245,21 @@ async fn main() -> Result<()> {
             Ok(cli) => cli,
             Err(err) => {
                 // For --help and --version, just print the message without "Error:"
-                if err.kind() == clap::error::ErrorKind::DisplayHelp 
-                    || err.kind() == clap::error::ErrorKind::DisplayVersion {
+                if err.kind() == clap::error::ErrorKind::DisplayHelp
+                    || err.kind() == clap::error::ErrorKind::DisplayVersion
+                {
                     println!("{}", err);
                     std::process::exit(0);
                 }
                 // For usage errors, show a cleaner error message
-                eprintln!("Error: {}", err.render()
-                    .to_string()
-                    .lines()
-                    .next()
-                    .unwrap_or("Invalid usage"));
+                eprintln!(
+                    "Error: {}",
+                    err.render()
+                        .to_string()
+                        .lines()
+                        .next()
+                        .unwrap_or("Invalid usage")
+                );
                 std::process::exit(1);
             }
         }
