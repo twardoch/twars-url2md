@@ -16,26 +16,54 @@ const USER_AGENT_STRING: &str =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:123.0) Gecko/20100101 Firefox/123.0";
 
 /// Convert web pages to Markdown using Monolith and htmd
+///
+/// This tool downloads web pages and converts them to clean Markdown format,
+/// removing styles and preserving content structure.
 #[derive(Parser)]
-#[command(author, version, about)]
+#[command(
+    author,
+    version,
+    about,
+    long_about = "
+A command-line tool that downloads web pages and converts them to clean Markdown format.
+It removes styles while preserving content structure, and supports both single and batch processing.
+
+EXAMPLES:
+    # Convert single URL to stdout
+    twars-url2md https://example.com
+
+    # Save single URL to file
+    twars-url2md https://example.com -o page.md
+
+    # Process multiple URLs to directory
+    twars-url2md https://example.com https://another.com -o output/
+
+    # Process URLs from file
+    twars-url2md -f urls.txt -o output/
+
+    # Read URLs from stdin
+    echo 'https://example.com' | twars-url2md --stdin -o output/
+"
+)]
 struct Cli {
-    /// URLs to process
-    #[arg(required_unless_present_any = ["input_file", "stdin"])]
+    /// URLs to process (e.g., 'https://example.com')
+    #[arg(required_unless_present_any = ["input_file", "stdin"], value_name = "URLS")]
     urls: Vec<String>,
 
-    /// File containing URLs (one per line)
-    #[arg(short = 'f', long)]
+    /// File containing URLs, one per line
+    #[arg(short = 'f', long, value_name = "FILE")]
     input_file: Option<PathBuf>,
 
     /// Read URLs from stdin (space or newline separated)
-    #[arg(long)]
+    #[arg(long, conflicts_with = "urls")]
     stdin: bool,
 
-    /// Output file (for single URL) or directory (for multiple URLs)
-    #[arg(short, long)]
+    /// Output file (for single URL) or directory (for multiple URLs).
+    /// If not provided, outputs to stdout.
+    #[arg(short, long, value_name = "PATH")]
     output: Option<PathBuf>,
 
-    /// Show verbose output
+    /// Show verbose output including processing details
     #[arg(short, long)]
     verbose: bool,
 }
