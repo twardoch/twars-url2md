@@ -53,8 +53,30 @@ jobs:
       - name: Build Release
         run: cargo build --release --all-features
 
+      - name: Check for existing release
+        id: check_release
+        uses: actions/github-script@v6
+        with:
+          script: |
+            try {
+              const release = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: context.ref.replace('refs/tags/', '')
+              });
+              core.setOutput('upload_url', release.data.upload_url);
+              core.setOutput('release_exists', 'true');
+            } catch (error) {
+              if (error.status === 404) {
+                core.setOutput('release_exists', 'false');
+              } else {
+                throw error;
+              }
+            }
+
       - name: Create Release
         id: create_release
+        if: steps.check_release.outputs.release_exists != 'true'
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -86,6 +108,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Publish to crates.io
-        run: cargo publish --token ${CRATES_TOKEN}
+        run: cargo publish --token ${CRATES_TOKEN} --allow-dirty
         env:
           CRATES_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
