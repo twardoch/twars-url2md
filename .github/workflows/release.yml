@@ -4,6 +4,10 @@ on:
   push:
     tags: [ "v*" ]
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   create-release:
     name: Create Release
@@ -84,4 +88,4 @@ jobs:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
           asset_path: ./${{ matrix.name }}.${{ runner.os == 'Windows' && 'zip' || 'tar.gz' }}
           asset_name: ${{ matrix.name }}.${{ runner.os == 'Windows' && 'zip' || 'tar.gz' }}
-          asset_content_type: application/octet-stream 
+          asset_content_type: application/octet-stream
