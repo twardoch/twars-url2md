@@ -1,9 +1,13 @@
 [package]
 name = "twars-url2md"
-version = "0.1.5"
+version = "0.0.0" # This will be overridden by git describe
 edition = "2021"
 authors = ["Adam"]
 description = "CLI tool to convert web pages to Markdown using Monolith and htmd"
+build = "build.rs"
+
+[build-dependencies]
+vergen-gitcl = "1.0.5"  # Using vergen-gitcl for git command line operations
 
 [dependencies]
 htmd = "=0.1.6"

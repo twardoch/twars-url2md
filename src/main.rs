@@ -15,6 +15,20 @@ use url::Url;
 const USER_AGENT_STRING: &str =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:123.0) Gecko/20100101 Firefox/123.0";
 
+const VERSION: &str = concat!(
+    env!("VERGEN_GIT_DESCRIBE"),
+    "\nCommit: ",
+    env!("VERGEN_GIT_SHA"),
+    " (",
+    env!("VERGEN_GIT_COMMIT_DATE"),
+    ")\nBranch: ",
+    env!("VERGEN_GIT_BRANCH"),
+    "\nMessage: ",
+    env!("VERGEN_GIT_COMMIT_MESSAGE"),
+    "\nTimestamp: ",
+    env!("VERGEN_GIT_COMMIT_TIMESTAMP")
+);
+
 /// Convert web pages to Markdown using Monolith and htmd
 ///
 /// This tool downloads web pages and converts them to clean Markdown format,
@@ -22,7 +36,7 @@ const USER_AGENT_STRING: &str =
 #[derive(Parser)]
 #[command(
     author,
-    version,
+    version = VERSION,
     about,
     long_about = "
 A command-line tool that downloads web pages and converts them to clean Markdown format.
