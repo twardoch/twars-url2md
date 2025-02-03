@@ -33,6 +33,10 @@ pub struct Cli {
     /// Base URL for resolving relative URLs
     #[arg(long)]
     base_url: Option<String>,
+
+    /// Enable verbose output
+    #[arg(short, long)]
+    verbose: bool,
 }
 
 impl Cli {
@@ -87,7 +91,7 @@ impl Cli {
     /// Create configuration from CLI arguments
     pub fn create_config(&self) -> crate::Config {
         crate::Config {
-            verbose: true,
+            verbose: self.verbose,
             max_retries: 2,
             output_base: self
                 .output
@@ -185,6 +189,7 @@ mod tests {
             output: None,
             stdin: false,
             base_url: None,
+            verbose: false,
         };
 
         let urls = cli.collect_urls()?;

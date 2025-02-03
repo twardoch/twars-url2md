@@ -189,7 +189,7 @@ pub async fn process_url_with_retry(
             );
         }
 
-        match crate::html::process_url_async(url, output_path.clone()).await {
+        match crate::html::process_url_async(url, output_path.clone(), verbose).await {
             Ok(_) => return Ok(()),
             Err(e) => {
                 last_error = Some(e);

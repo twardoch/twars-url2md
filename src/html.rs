@@ -9,7 +9,11 @@ use std::path::PathBuf;
 use crate::markdown;
 
 /// Process a URL by downloading its content and converting to Markdown
-pub async fn process_url_async(url: &str, output_path: Option<PathBuf>) -> Result<()> {
+pub async fn process_url_async(
+    url: &str,
+    output_path: Option<PathBuf>,
+    verbose: bool,
+) -> Result<()> {
     let client = create_http_client()?;
     let html = fetch_html(&client, url).await?;
     let markdown = markdown::convert_html_to_markdown(&html)?;
@@ -18,7 +22,9 @@ pub async fn process_url_async(url: &str, output_path: Option<PathBuf>) -> Resul
         Some(path) => {
             fs::write(&path, markdown)
                 .with_context(|| format!("Failed to write to file: {}", path.display()))?;
-            eprintln!("Created: {}", path.display());
+            if verbose {
+                eprintln!("Created: {}", path.display());
+            }
         }
         None => println!("{}", markdown),
     }
