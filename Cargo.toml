@@ -1,6 +1,6 @@
 [package]
 name = "twars-url2md"
-version = "1.0.1"  # First stable release with enhanced CLI
+version = "1.0.2"  # Improved help message display
 edition = "2021"
 authors = ["Adam"]
 description = "CLI tool to convert web pages to Markdown using Monolith and htmd"

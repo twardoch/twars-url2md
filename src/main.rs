@@ -241,17 +241,24 @@ async fn main() -> Result<()> {
     let cli = if args.iter().any(|arg| arg == "-v" || arg == "--verbose") {
         Cli::parse()
     } else {
-        Cli::try_parse_from(args).map_err(|e| {
-            // Only show usage errors, not the fancy clap output
-            anyhow::anyhow!(
-                "{}",
-                e.render()
+        match Cli::try_parse() {
+            Ok(cli) => cli,
+            Err(err) => {
+                // For --help and --version, just print the message without "Error:"
+                if err.kind() == clap::error::ErrorKind::DisplayHelp 
+                    || err.kind() == clap::error::ErrorKind::DisplayVersion {
+                    println!("{}", err);
+                    std::process::exit(0);
+                }
+                // For usage errors, show a cleaner error message
+                eprintln!("Error: {}", err.render()
                     .to_string()
                     .lines()
                     .next()
-                    .unwrap_or("Invalid usage")
-            )
-        })?
+                    .unwrap_or("Invalid usage"));
+                std::process::exit(1);
+            }
+        }
     };
 
     // Collect all URLs
