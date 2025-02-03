@@ -159,19 +159,42 @@ fn url_to_filename(url: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::tempdir;
 
     #[test]
     fn test_collect_urls_from_text_file() -> Result<()> {
-        let test_file = PathBuf::from("testdata").join("sample_urls.txt");
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("sample_urls.txt");
+        let test_content = "\
+            https://example.com/\n\
+            http://test.org/\n\
+            https://rust-lang.org/\n\
+            https://github.com/example/repo\n\
+            http://blog.example.com/post/123\n\
+            https://docs.example.com/guide#section\n\
+            ftp://invalid.com\n\
+            not-a-url.com\n\
+            www.example.com";
 
+        // Create test file with sample URLs
+        fs::write(&test_file, test_content)?;
+
+        // Test file input
         let cli = Cli {
-            input: None,
+            input: Some(test_file),
             output: None,
             stdin: false,
             base_url: None,
         };
 
         let urls = cli.collect_urls()?;
+        println!("Found URLs: {:?}", urls);
+        verify_urls(&urls);
+
+        Ok(())
+    }
+
+    fn verify_urls(urls: &[String]) {
         println!("Found URLs: {:?}", urls);
 
         // Test for basic URLs (with trailing slashes)
@@ -192,7 +215,5 @@ mod tests {
         assert!(!urls.iter().any(|u| u == "www.example.com"));
 
         assert_eq!(urls.len(), 6, "Expected exactly 6 valid URLs");
-
-        Ok(())
     }
 }
