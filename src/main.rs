@@ -84,22 +84,20 @@ fn create_output_path(url: &Url, base_dir: &Path) -> Result<PathBuf> {
 }
 
 fn remove_styles(node: &Handle) {
-    match node.data {
-        NodeData::Element {
-            ref name,
-            ref attrs,
-            ..
-        } => {
-            // Remove style tags
-            if name.local.as_ref() == "style" {
-                node.children.borrow_mut().clear();
-            }
-
-            // Remove style attributes
-            let mut attrs = attrs.borrow_mut();
-            attrs.retain(|attr| attr.name.local.as_ref() != "style");
+    if let NodeData::Element {
+        ref name,
+        ref attrs,
+        ..
+    } = node.data
+    {
+        // Remove style tags
+        if name.local.as_ref() == "style" {
+            node.children.borrow_mut().clear();
         }
-        _ => {}
+
+        // Remove style attributes
+        let mut attrs = attrs.borrow_mut();
+        attrs.retain(|attr| attr.name.local.as_ref() != "style");
     }
 
     // Process children
@@ -213,8 +211,7 @@ async fn main() -> Result<()> {
     // Add URLs from stdin if requested
     if cli.stdin {
         let stdin = io::stdin();
-        let mut lines = stdin.lock().lines();
-        while let Some(line) = lines.next() {
+        for line in stdin.lock().lines() {
             let line = line?;
             urls.extend(
                 line.split_whitespace()
