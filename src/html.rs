@@ -130,13 +130,11 @@ async fn fetch_html(client: &Client, url: &str) -> Result<String> {
     let processed_html = tokio::task::spawn_blocking({
         let html_bytes = Arc::clone(&html_bytes);
         move || {
-            // First try monolith processing
-            let dom = monolith::html::html_to_dom(&html_bytes, charset.clone());
-            let mut cache = HashMap::new();
-            let blocking_client = reqwest::blocking::Client::new();
-
-            // Process with monolith
-            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            // Try monolith processing with catch_unwind to catch all panics including html_to_dom
+            let result = std::panic::catch_unwind(|| {
+                let dom = monolith::html::html_to_dom(&html_bytes, charset.clone());
+                let mut cache = HashMap::new();
+                let blocking_client = reqwest::blocking::Client::new();
                 monolith::html::walk_and_embed_assets(
                     &mut cache,
                     &blocking_client,
@@ -145,8 +143,7 @@ async fn fetch_html(client: &Client, url: &str) -> Result<String> {
                     &options,
                 );
                 monolith::html::serialize_document(dom, charset, &options)
-            }));
-
+            });
             // If monolith processing fails, fall back to original HTML
             match result {
                 Ok(html) => html,
