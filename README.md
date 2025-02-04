@@ -5,56 +5,55 @@
 ![GitHub commits since latest release](https://img.shields.io/github/commits-since/twardoch/twars-url2md/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**twars-url2md** is a robust command-line tool written in Rust that fetches web pages, cleans up their HTML content, and converts them into clean Markdown. It leverages [Monolith](https://github.com/Y2Z/monolith) for content extraction and [htmd](https://crates.io/crates/htmd) for the conversion process, ensuring that the resulting Markdown preserves the document's logical structure.
+**`twars-url2md`** is a fast and robust command-line tool written in Rust that fetches web pages, cleans up their HTML content, and converts them into clean Markdown.
+
+You can drop a text that contains URLs onto the app, and it will find all the URLs and save Markdown versions of the pages in a logical folder structure. The output is not perfect, but the tool is fast and robust.
 
 ## Table of Contents
 
 - [Features](#features)
 - [Installation](#installation)
 - [Usage](#usage)
-  - [Input Options](#input-options)
-  - [Output Organization](#output-organization)
-  - [Examples](#examples)
 - [Configuration & Retry Mechanism](#configuration--retry-mechanism)
 - [Development and Testing](#development-and-testing)
 - [CI/CD and Release Process](#cicd-and-release-process)
 - [Contributing](#contributing)
+- [How It Works](#how-it-works)
 - [License](#license)
 - [Author](#author)
 
 ## Features
 
-- **Powerful Content Extraction**
-  - Uses Monolith to fetch and process web content
-  - Strips unwanted assets (CSS, JavaScript, images, videos, fonts)
-  - Preserves essential HTML structure
-  - Handles proper character encoding detection
+### Powerful Web Content Conversion
 
-- **Smart URL Processing**
-  - Extracts and validates URLs from plain text, HTML, and Markdown
-  - Supports relative URL resolution with base URL
-  - Filters out invalid URLs and duplicates
-  - Handles special characters and complex URL structures
+- Extracts clean web content using Monolith
+- Converts web pages to Markdown efficiently
+- Handles complex URL and encoding scenarios
 
-- **Flexible Input Options**
-  - File input (one URL per line)
-  - Standard input (pipe URLs)
-  - Command-line arguments
-  - Base URL specification for relative links
+### Smart URL Handling
 
-- **Robust Output Management**
-  - Organized directory hierarchy based on URL structure
-  - Smart filename generation (`index.md` for root/trailing slash)
-  - Proper handling of special characters
-  - Optional single file or directory-based output
+- Extracts URLs from various text formats
+- Resolves and validates URLs intelligently
+- Supports base URL and relative link processing
 
-- **Advanced Processing Features**
-  - Parallel URL processing with progress indication
-  - Exponential backoff retry mechanism
-  - Comprehensive error reporting
-  - Cross-platform compatibility
+### Flexible Input & Output**
 
-## Installation
+- Multiple input methods (file, stdin, CLI)
+- Organized Markdown file generation
+- Cross-platform compatibility
+
+### Advanced Processing
+
+  - Parallel URL processing
+  - Robust error handling
+
+## Install CLI app
+
+#### ☛ [Download CLI app](https://github.com/twardoch/twars-url2md/releases) for Mac, Windows or Linux
+
+Pre-compiled binary builds for macOS (Apple/Intel), Windows (x86_64), and Linux (x86_64) are on the [releases page](https://github.com/twardoch/twars-url2md/releases).
+
+## Other ways to install
 
 ### From Crates.io
 
@@ -63,16 +62,6 @@ Make sure you have [Rust](https://www.rust-lang.org/tools/install) (MSRV: **1.70
 ```bash
 cargo install twars-url2md
 ```
-
-### From Binary Releases
-
-Pre-built binaries are available for:
-
-- Linux (x86_64)
-- macOS (Universal binary for Intel and Apple Silicon)
-- Windows (x86_64)
-
-Download from the [Releases page](https://github.com/twardoch/twars-url2md/releases).
 
 ### From Source
 
@@ -106,10 +95,9 @@ The tool accepts URLs via a file or standard input and converts each page into a
 
 ### Output Organization
 
-For URLs like `scheme://username:password@host:port/path?query#fragment`:
+The tool organizes the output into a directory structure based on the URLs.
 
-- Username, password, port, query parameters, and fragments are ignored
-- Files are organized by host and path components
+- Organizes files by host and path components
 - URLs ending in `/` or with no path use `index.md`
 - Other URLs use the last path component with `.md` extension
 
@@ -138,32 +126,34 @@ twars-url2md --input urls.txt --output ./markdown_output
 # Process piped URLs with base URL for relative links
 cat urls.txt | twars-url2md --stdin --base_url "https://example.com" --output ./output
 
-# Show verbose output (enabled by default)
-twars-url2md --input urls.txt --output ./output
+# Show verbose output (disabled by default)
+twars-url2md --input urls.txt --output ./output --verbose
 ```
 
 #### Batch work
 
 ```bash
-# This downloads 260+ links
-curl "https://en.wikipedia.org/wiki/Rust_(programming_language)" | twars-url2md --stdin
+# This scans the page for links, and downloads all 260+ pages linked from that page, in about 15 seconds
+curl "https://en.wikipedia.org/wiki/Rust_(programming_language)" | twars-url2md --stdin --output work/
 
-# This downloads 11k+ links from all the files downloaded previously
-cat $(fd -e md) | twars-url2md --stdin
+# This downloads 15k+ pages (links from all the files downloaded previously) in 8 minutes
+cat $(fd -e md --search-path work) | twars-url2md --stdin --output work/
 ```
 
-
-## Configuration & Retry Mechanism
-
-- **Parallel Processing**: Uses tokio for concurrent URL processing
-- **Progress Tracking**: Displays progress bar for multiple URLs
-- **Retry Logic**:
-  - Up to 2 retries per URL
-  - Exponential backoff between attempts
-  - Detailed error reporting for failed URLs
-- **Verbose Mode**: Enabled by default for processing information
-
 ## Development and Testing
+
+`twars-url2md` efficiently processes web content through several optimized steps. It starts by extracting valid _http(s)_ URLs using the `linkify` crate, filtering out malformed links from stdin, files, or command-line inputs.
+
+For each URL, `twars-url2md`:
+
+- Spawns an asynchronous task with `tokio`, scaling concurrent tasks to available CPU cores
+- Uses `monolith` to fetch and clean HTML, removing scripts, styles, and media while preserving document structure
+- Processes HTML with a custom `html5ever` parser that maintains document hierarchy and handles character encoding
+- Converts content to Markdown via `htmd`, preserving headings, links, and basic formatting
+- Implements an exponential backoff retry mechanism for failed requests
+- Creates output directories based on URL domain and path using cross-platform `PathBuf`
+
+The tool provides comprehensive error handling, catches potential panics, and generates meaningful error messages. It tracks progress for multiple URLs with `indicatif` and uses `rayon` for parallel processing of large HTML documents. It processes files in chunks and uses pre-allocated data structures with estimated capacities to achieve memory efficiency.
 
 ### Running Tests
 
@@ -184,18 +174,7 @@ cargo test test_name
 - **Linting**: `cargo clippy --all-targets --all-features`
 - **Pre-commit Hooks**: Runs formatting, clippy, and basic checks
 
-### Dependencies
 
-Key crates used:
-
-- `monolith`: Web content extraction
-- `htmd`: HTML to Markdown conversion
-- `tokio`: Async runtime
-- `reqwest`: HTTP client
-- `linkify`: URL detection
-- `clap`: CLI argument parsing
-- `indicatif`: Progress bars
-- `html5ever`: HTML parsing
 
 ## CI/CD and Release Process
 
@@ -207,21 +186,7 @@ GitHub Actions workflow includes:
 - Binary builds for multiple platforms
 - Automatic crates.io publishing
 
-## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Install pre-commit hooks: `pre-commit install`
-4. Make your changes
-5. Ensure tests pass: `cargo test`
-6. Submit a pull request
-
-Please follow:
-
-- Rust coding conventions
-- Comprehensive test coverage
-- Clear commit messages
-- Documentation updates
 
 ## License
 
