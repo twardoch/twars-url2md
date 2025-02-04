@@ -2,6 +2,23 @@ use anyhow::Result;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Set custom panic hook for the main thread
+    std::panic::set_hook(Box::new(|panic_info| {
+        if let Some(location) = panic_info.location() {
+            eprintln!(
+                "Warning: Processing error in {} at line {}: {}",
+                location.file(),
+                location.line(),
+                panic_info
+            );
+        } else {
+            eprintln!("Warning: Processing error occurred: {}", panic_info);
+        }
+    }));
+
+    // Disable backtrace for cleaner error messages
+    std::env::set_var("RUST_BACKTRACE", "0");
+
     // Parse command-line arguments
     let cli = twars_url2md::cli::Cli::parse_args()?;
 

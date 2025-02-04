@@ -177,20 +177,29 @@ async fn fetch_html(client: &Client, url: &str) -> Result<String> {
     let html_bytes = Arc::new(html_bytes.to_vec());
     let charset = charset.clone();
 
+    // Try to process with Monolith, but fall back to simple HTML if anything fails
     let processed_html = tokio::task::spawn_blocking({
         let html_bytes = Arc::clone(&html_bytes);
         let simple_html = simple_html.clone();
         move || {
-            // Try monolith processing with catch_unwind
-            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                let dom = monolith::html::html_to_dom(&html_bytes, charset.clone());
+            // Set a thread-local panic hook that returns control instead of aborting
+            let prev_hook = std::panic::take_hook();
+            std::panic::set_hook(Box::new(|_| {}));
 
-                // Try to process assets
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                // Try to create DOM with error handling
+                let dom = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    monolith::html::html_to_dom(&html_bytes, charset.clone())
+                })) {
+                    Ok(dom) => dom,
+                    Err(_) => return simple_html.as_bytes().to_vec(),
+                };
+
+                // Try to process assets with error handling
                 let mut cache = HashMap::new();
                 let blocking_client = reqwest::blocking::Client::new();
 
-                // Wrap the asset processing in another catch_unwind
-                if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     monolith::html::walk_and_embed_assets(
                         &mut cache,
                         &blocking_client,
@@ -198,28 +207,21 @@ async fn fetch_html(client: &Client, url: &str) -> Result<String> {
                         &dom.document,
                         &options,
                     )
-                }))
-                .is_ok()
-                {
-                    // If asset processing succeeds, try to serialize
-                    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                        monolith::html::serialize_document(dom, charset, &options)
-                    })) {
-                        Ok(html) => html,
-                        Err(_) => simple_html.as_bytes().to_vec(),
-                    }
-                } else {
-                    // If asset processing fails, try to serialize without it
-                    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                        monolith::html::serialize_document(dom, charset, &options)
-                    })) {
-                        Ok(html) => html,
-                        Err(_) => simple_html.as_bytes().to_vec(),
-                    }
+                }));
+
+                // Try to serialize with error handling
+                match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    monolith::html::serialize_document(dom, charset, &options)
+                })) {
+                    Ok(html) => html,
+                    Err(_) => simple_html.as_bytes().to_vec(),
                 }
             }));
 
-            // If any part of monolith processing fails, fall back to simple HTML
+            // Restore the previous panic hook
+            std::panic::set_hook(prev_hook);
+
+            // Return result or fallback to simple HTML
             match result {
                 Ok(html) => html,
                 Err(_) => simple_html.as_bytes().to_vec(),
@@ -227,12 +229,10 @@ async fn fetch_html(client: &Client, url: &str) -> Result<String> {
         }
     })
     .await
-    .map_err(|e| anyhow::anyhow!("Failed to process HTML in blocking task: {}", e))?;
+    .unwrap_or_else(|_| simple_html.as_bytes().to_vec());
 
-    let html_string = String::from_utf8(processed_html)
-        .map_err(|e| anyhow::anyhow!("Failed to convert processed HTML to UTF-8: {}", e))?;
-
-    Ok(html_string)
+    String::from_utf8(processed_html)
+        .map_err(|e| anyhow::anyhow!("Failed to convert processed HTML to UTF-8: {}", e))
 }
 
 #[cfg(test)]
