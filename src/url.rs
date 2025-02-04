@@ -3,6 +3,7 @@ use html5ever::parse_document;
 use html5ever::tendril::TendrilSink;
 use linkify::{LinkFinder, LinkKind};
 use markup5ever_rcdom as rcdom;
+use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 use tokio::time::Duration;
 pub use url::Url;
@@ -41,23 +42,70 @@ pub fn create_output_path(url: &Url, base_dir: &Path) -> Result<PathBuf> {
 
 /// Extract URLs from any text input
 pub fn extract_urls_from_text(text: &str, base_url: Option<&str>) -> Vec<String> {
+    // Pre-allocate with a reasonable capacity based on text length
+    let estimated_capacity = text.len() / 100; // More conservative estimate
+    let mut urls = Vec::with_capacity(estimated_capacity.min(1000));
+
+    // Process in chunks if the input is large
+    if text.len() > 1_000_000 {
+        // Process large text in chunks to avoid memory spikes
+        for chunk in text.as_bytes().chunks(1_000_000) {
+            if let Ok(chunk_str) = std::str::from_utf8(chunk) {
+                process_text_chunk(chunk_str, base_url, &mut urls);
+            }
+        }
+    } else {
+        process_text_chunk(text, base_url, &mut urls);
+    }
+
+    // Use unstable sort for better performance since order doesn't matter for deduplication
+    urls.sort_unstable();
+    urls.dedup();
+    urls
+}
+
+/// Process a chunk of text to extract URLs
+fn process_text_chunk(text: &str, base_url: Option<&str>, urls: &mut Vec<String>) {
     if text.trim().starts_with('<') {
-        extract_urls_from_html(text, base_url)
+        extract_urls_from_html_efficient(text, base_url, urls);
     } else {
         let finder = LinkFinder::new();
-        let mut urls: Vec<String> = finder
-            .links(text)
-            .filter_map(|link| {
-                if link.kind() == &LinkKind::Url {
-                    try_parse_url(link.as_str(), base_url)
-                } else {
-                    None
-                }
+        urls.extend(finder.links(text).filter_map(|link| {
+            if link.kind() == &LinkKind::Url {
+                try_parse_url(link.as_str(), base_url)
+            } else {
+                None
+            }
+        }));
+    }
+}
+
+/// More efficient HTML URL extraction
+fn extract_urls_from_html_efficient(html: &str, base_url: Option<&str>, urls: &mut Vec<String>) {
+    // Use a pre-configured link finder for better performance
+    let mut finder = LinkFinder::new();
+    finder.kinds(&[LinkKind::Url]);
+
+    // Process in parallel if HTML is large enough
+    if html.len() > 50_000 {
+        // Split HTML into chunks at word boundaries
+        let chunks: Vec<&str> = html.split_whitespace().collect();
+        let processed_urls: Vec<String> = chunks
+            .par_iter()
+            .flat_map(|&chunk| {
+                finder
+                    .links(chunk)
+                    .filter_map(|link| try_parse_url(link.as_str(), base_url))
+                    .collect::<Vec<_>>()
             })
             .collect();
-        urls.sort();
-        urls.dedup();
-        urls
+        urls.extend(processed_urls);
+    } else {
+        urls.extend(
+            finder
+                .links(html)
+                .filter_map(|link| try_parse_url(link.as_str(), base_url)),
+        );
     }
 }
 
@@ -71,8 +119,41 @@ pub fn extract_urls_from_html(html: &str, base_url: Option<&str>) -> Vec<String>
         .read_from(&mut html.as_bytes())
         .unwrap();
 
-    // Extract URLs from HTML structure
-    extract_urls_from_node(&dom.document, base_url, &mut urls);
+    // Extract URLs from HTML structure using iterative approach
+    let mut stack = vec![dom.document.clone()];
+    while let Some(node) = stack.pop() {
+        // Process element nodes
+        if let rcdom::NodeData::Element { ref attrs, .. } = node.data {
+            let attrs = attrs.borrow();
+
+            // Define URL-containing attributes to check
+            let url_attrs = ["href", "src", "data-src", "data-href", "data-url"];
+
+            for attr in attrs.iter() {
+                let attr_name = attr.name.local.to_string();
+                let attr_value = attr.value.to_string();
+
+                if url_attrs.contains(&attr_name.as_str()) {
+                    if let Some(url) = try_parse_url(&attr_value, base_url) {
+                        urls.push(url);
+                    }
+                } else if attr_name == "srcset" {
+                    // Handle srcset attribute which may contain multiple URLs
+                    for src in attr_value.split(',') {
+                        let src = src.split_whitespace().next().unwrap_or("");
+                        if let Some(url) = try_parse_url(src, base_url) {
+                            urls.push(url);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Add child nodes to stack
+        for child in node.children.borrow().iter() {
+            stack.push(child.clone());
+        }
+    }
 
     // Use LinkFinder as a fallback to catch any remaining URLs in text content
     let finder = LinkFinder::new();
@@ -88,40 +169,6 @@ pub fn extract_urls_from_html(html: &str, base_url: Option<&str>) -> Vec<String>
     urls.sort();
     urls.dedup();
     urls
-}
-
-fn extract_urls_from_node(node: &rcdom::Handle, base_url: Option<&str>, urls: &mut Vec<String>) {
-    // Only process element nodes
-    if let rcdom::NodeData::Element { ref attrs, .. } = node.data {
-        let attrs = attrs.borrow();
-
-        // Define URL-containing attributes to check
-        let url_attrs = ["href", "src", "data-src", "data-href", "data-url"];
-
-        for attr in attrs.iter() {
-            let attr_name = attr.name.local.to_string();
-            let attr_value = attr.value.to_string();
-
-            if url_attrs.contains(&attr_name.as_str()) {
-                if let Some(url) = try_parse_url(&attr_value, base_url) {
-                    urls.push(url);
-                }
-            } else if attr_name == "srcset" {
-                // Handle srcset attribute which may contain multiple URLs
-                for src in attr_value.split(',') {
-                    let src = src.split_whitespace().next().unwrap_or("");
-                    if let Some(url) = try_parse_url(src, base_url) {
-                        urls.push(url);
-                    }
-                }
-            }
-        }
-    }
-
-    // Recursively process child nodes
-    for child in node.children.borrow().iter() {
-        extract_urls_from_node(child, base_url, urls);
-    }
 }
 
 fn try_parse_url(url_str: &str, base_url: Option<&str>) -> Option<String> {

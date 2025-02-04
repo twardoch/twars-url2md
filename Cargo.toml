@@ -1,6 +1,6 @@
 [package]
 name = "twars-url2md"
-version = "1.3.0"
+version = "1.3.1"
 edition = "2021"
 authors = ["Adam Twardoch <adam+github@twardoch.com>"]
 description = "A powerful CLI tool that fetches web pages and converts them to clean Markdown format using Monolith for content extraction and htmd for conversion"
@@ -30,6 +30,7 @@ encoding_rs = "0.8"
 linkify = "0.10"
 num_cpus = "1.16"
 sha2 = "0.10"
+rayon = "1.8"
 
 
 [dependencies.markup5ever]

@@ -142,6 +142,17 @@ cat urls.txt | twars-url2md --stdin --base_url "https://example.com" --output ./
 twars-url2md --input urls.txt --output ./output
 ```
 
+#### Batch work
+
+```bash
+# This downloads 260+ links
+curl "https://en.wikipedia.org/wiki/Rust_(programming_language)" | twars-url2md --stdin
+
+# This downloads 11k+ links from all the files downloaded previously
+cat $(fd -e md) | twars-url2md --stdin
+```
+
+
 ## Configuration & Retry Mechanism
 
 - **Parallel Processing**: Uses tokio for concurrent URL processing

@@ -3,6 +3,7 @@ use clap::Parser;
 use std::fs;
 use std::io::{self, Read};
 use std::path::PathBuf;
+use tokio;
 
 use crate::url::extract_urls_from_text;
 
@@ -104,7 +105,7 @@ impl Cli {
     }
 }
 
-pub fn run() -> io::Result<()> {
+pub async fn run() -> io::Result<()> {
     let cli = Cli::parse();
 
     // Validate input options
@@ -128,7 +129,7 @@ pub fn run() -> io::Result<()> {
             // Create markdown file for each URL
             let mut file_path = output_dir.clone();
             file_path.push(format!("{}.md", url_to_filename(&url)));
-            fs::write(file_path, format!("# {}\n\n{}\n", url, url))?;
+            tokio::fs::write(file_path, format!("# {}\n\n{}\n", url, url)).await?;
         }
     } else {
         // Print URLs to stdout if no output directory specified

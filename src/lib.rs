@@ -1,6 +1,8 @@
 use crate::url::Url;
 use anyhow::Result;
+use futures::stream::{self, StreamExt};
 use std::path::PathBuf;
+use std::thread;
 
 pub mod cli;
 mod error;
@@ -43,7 +45,6 @@ pub async fn process_urls(
     urls: Vec<String>,
     config: Config,
 ) -> Result<Vec<(String, anyhow::Error)>> {
-    use futures::future::join_all;
     use indicatif::{ProgressBar, ProgressStyle};
     use std::sync::Arc;
 
@@ -63,72 +64,65 @@ pub async fn process_urls(
     };
 
     let pb = Arc::new(pb);
-    let mut errors = Vec::new();
-    let tasks: Vec<_> = urls
-        .into_iter()
-        .map(|url| {
-            let pb = Arc::clone(&pb);
-            let config = config.clone();
+    // Adaptive concurrency based on CPU cores
+    let concurrency_limit = thread::available_parallelism()
+        .map(|n| n.get() * 2) // 2 tasks per CPU core
+        .unwrap_or(10);
 
-            tokio::spawn(async move {
-                if config.verbose {
-                    eprintln!("Processing: {}", url);
-                }
-
-                let result = match Url::parse(&url) {
-                    Ok(url_parsed) => {
-                        let out_path = if config.single_file
-                            && config.has_output
-                            && !config.output_base.is_dir()
-                        {
-                            Some(config.output_base)
-                        } else {
-                            match url::create_output_path(&url_parsed, &config.output_base) {
-                                Ok(path) => Some(path),
-                                Err(e) => {
-                                    eprintln!(
-                                        "Warning: Failed to create output path for {}: {}",
-                                        url, e
-                                    );
-                                    None
-                                }
-                            }
-                        };
-                        url::process_url_with_retry(
-                            &url,
-                            out_path,
-                            config.verbose,
-                            config.max_retries,
-                        )
-                        .await
+    let results = stream::iter(urls.into_iter().map(|url| {
+        let pb = Arc::clone(&pb);
+        let config = config.clone();
+        async move {
+            if config.verbose {
+                eprintln!("Processing: {}", url);
+            }
+            match Url::parse(&url) {
+                Ok(url_parsed) => {
+                    let out_path = if config.single_file
+                        && config.has_output
+                        && !config.output_base.is_dir()
+                    {
+                        Some(config.output_base)
+                    } else {
+                        url::create_output_path(&url_parsed, &config.output_base).ok()
+                    };
+                    let result = url::process_url_with_retry(
+                        &url,
+                        out_path,
+                        config.verbose,
+                        config.max_retries,
+                    )
+                    .await;
+                    if let Some(pb) = &*pb {
+                        pb.inc(1);
                     }
-                    Err(e) => Err((url, e.into())),
-                };
-
-                if let Some(pb) = &*pb {
-                    pb.inc(1);
+                    result
                 }
+                Err(e) => {
+                    if let Some(pb) = &*pb {
+                        pb.inc(1);
+                    }
+                    Err((url, e.into()))
+                }
+            }
+        }
+    }))
+    .buffer_unordered(concurrency_limit)
+    .collect::<Vec<_>>()
+    .await;
 
-                result
-            })
-        })
-        .collect();
-
-    let results = join_all(tasks).await;
     if let Some(pb) = &*pb {
         pb.finish_with_message("Done!");
     }
 
-    for result in results {
-        match result {
-            Ok(Ok(())) => {}
-            Ok(Err((url, error))) => {
-                eprintln!("Warning: Failed to process {}: {}", url, error);
-                errors.push((url, error));
-            }
+    // Process results as before
+    let mut errors = Vec::new();
+    for r in results {
+        match r {
+            Ok(()) => {}
             Err(e) => {
-                eprintln!("Warning: Task failed: {}", e);
-                errors.push(("Unknown URL".to_string(), e.into()));
+                eprintln!("Warning: Failed to process {}: {}", e.0, e.1);
+                errors.push(e);
             }
         }
     }
