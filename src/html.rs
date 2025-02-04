@@ -9,6 +9,13 @@ use std::time::Duration;
 
 use crate::markdown;
 
+/// Log an error message if verbose mode is enabled
+fn log_error(msg: &str, verbose: bool) {
+    if verbose {
+        eprintln!("Warning: {}", msg);
+    }
+}
+
 /// Process a URL by downloading its content and converting to Markdown
 pub async fn process_url_async(
     url: &str,
@@ -26,9 +33,7 @@ pub async fn process_url_async(
         || url.ends_with(".mp4")
         || url.ends_with(".webm")
     {
-        if verbose {
-            eprintln!("Skipping non-HTML URL: {}", url);
-        }
+        log_error(&format!("Skipping non-HTML URL: {}", url), verbose);
         return Ok(());
     }
 
@@ -38,14 +43,50 @@ pub async fn process_url_async(
     static CACHE_CAPACITY: usize = 1024;
     let _cache: HashMap<String, Vec<u8>> = HashMap::with_capacity(CACHE_CAPACITY);
 
-    let html = fetch_html(&client, url).await?;
-    let markdown = markdown::convert_html_to_markdown(&html)?;
+    let html = match fetch_html(&client, url).await {
+        Ok(html) => html,
+        Err(e) => {
+            log_error(
+                &format!(
+                    "Error fetching HTML from {}: {}. Using fallback processing.",
+                    url, e
+                ),
+                verbose,
+            );
+            // Try to get raw HTML as fallback
+            client.get(url).send().await?.text().await?
+        }
+    };
+
+    let markdown = match markdown::convert_html_to_markdown(&html) {
+        Ok(md) => md,
+        Err(e) => {
+            log_error(
+                &format!(
+                    "Error converting to Markdown: {}. Using simplified conversion.",
+                    e
+                ),
+                verbose,
+            );
+            // Fallback to simpler conversion if htmd fails
+            html.replace("<br>", "\n")
+                .replace("<br/>", "\n")
+                .replace("<br />", "\n")
+                .replace("<p>", "\n\n")
+                .replace("</p>", "")
+        }
+    };
 
     match output_path {
         Some(path) => {
             // Use async file operations for better I/O performance
             if let Some(parent) = path.parent() {
-                tokio::fs::create_dir_all(parent).await?;
+                if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                    log_error(
+                        &format!("Failed to create directory {}: {}", parent.display(), e),
+                        verbose,
+                    );
+                }
             }
             tokio::fs::write(&path, markdown)
                 .await
@@ -104,7 +145,16 @@ async fn fetch_html(client: &Client, url: &str) -> Result<String> {
         .await
         .with_context(|| format!("Failed to read response body from URL: {}", url))?;
 
-    // Offload the CPU-bound HTML processing into a blocking task:
+    // First try simple HTML cleanup without Monolith
+    let simple_html = String::from_utf8_lossy(&html_bytes)
+        .replace("<!--", "")
+        .replace("-->", "")
+        .replace("<script", "<!--<script")
+        .replace("</script>", "</script>-->")
+        .replace("<style", "<!--<style")
+        .replace("</style>", "</style>-->");
+
+    // Try Monolith processing in a blocking task
     let options = Options {
         no_video: true,
         isolate: true,
@@ -129,25 +179,50 @@ async fn fetch_html(client: &Client, url: &str) -> Result<String> {
 
     let processed_html = tokio::task::spawn_blocking({
         let html_bytes = Arc::clone(&html_bytes);
+        let simple_html = simple_html.clone();
         move || {
-            // Try monolith processing with catch_unwind to catch all panics including html_to_dom
-            let result = std::panic::catch_unwind(|| {
+            // Try monolith processing with catch_unwind
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 let dom = monolith::html::html_to_dom(&html_bytes, charset.clone());
+
+                // Try to process assets
                 let mut cache = HashMap::new();
                 let blocking_client = reqwest::blocking::Client::new();
-                monolith::html::walk_and_embed_assets(
-                    &mut cache,
-                    &blocking_client,
-                    &document_url,
-                    &dom.document,
-                    &options,
-                );
-                monolith::html::serialize_document(dom, charset, &options)
-            });
-            // If monolith processing fails, fall back to original HTML
+
+                // Wrap the asset processing in another catch_unwind
+                if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    monolith::html::walk_and_embed_assets(
+                        &mut cache,
+                        &blocking_client,
+                        &document_url,
+                        &dom.document,
+                        &options,
+                    )
+                }))
+                .is_ok()
+                {
+                    // If asset processing succeeds, try to serialize
+                    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        monolith::html::serialize_document(dom, charset, &options)
+                    })) {
+                        Ok(html) => html,
+                        Err(_) => simple_html.as_bytes().to_vec(),
+                    }
+                } else {
+                    // If asset processing fails, try to serialize without it
+                    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        monolith::html::serialize_document(dom, charset, &options)
+                    })) {
+                        Ok(html) => html,
+                        Err(_) => simple_html.as_bytes().to_vec(),
+                    }
+                }
+            }));
+
+            // If any part of monolith processing fails, fall back to simple HTML
             match result {
                 Ok(html) => html,
-                Err(_) => (*html_bytes).clone(),
+                Err(_) => simple_html.as_bytes().to_vec(),
             }
         }
     })
