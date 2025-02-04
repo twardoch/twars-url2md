@@ -199,20 +199,20 @@ async fn fetch_html(client: &Client, url: &str) -> Result<String> {
                 let mut cache = HashMap::new();
                 let blocking_client = reqwest::blocking::Client::new();
 
-                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                // Wrap all Monolith operations in catch_unwind
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     monolith::html::walk_and_embed_assets(
                         &mut cache,
                         &blocking_client,
                         &document_url,
                         &dom.document,
                         &options,
-                    )
+                    );
+
+                    monolith::html::serialize_document(dom, charset, &options)
                 }));
 
-                // Try to serialize with error handling
-                match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    monolith::html::serialize_document(dom, charset, &options)
-                })) {
+                match result {
                     Ok(html) => html,
                     Err(_) => simple_html.as_bytes().to_vec(),
                 }

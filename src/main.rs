@@ -1,21 +1,7 @@
 use anyhow::Result;
+use std::panic;
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    // Set custom panic hook for the main thread
-    std::panic::set_hook(Box::new(|panic_info| {
-        if let Some(location) = panic_info.location() {
-            eprintln!(
-                "Warning: Processing error in {} at line {}: {}",
-                location.file(),
-                location.line(),
-                panic_info
-            );
-        } else {
-            eprintln!("Warning: Processing error occurred: {}", panic_info);
-        }
-    }));
-
+fn run() -> Result<()> {
     // Disable backtrace for cleaner error messages
     std::env::set_var("RUST_BACKTRACE", "0");
 
@@ -30,7 +16,8 @@ async fn main() -> Result<()> {
     let verbose = config.verbose;
 
     // Process URLs
-    let errors = twars_url2md::process_urls(urls, config).await?;
+    let rt = tokio::runtime::Runtime::new()?;
+    let errors = rt.block_on(twars_url2md::process_urls(urls, config))?;
 
     // Report summary
     if !errors.is_empty() && verbose {
@@ -42,4 +29,32 @@ async fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn main() {
+    // Set custom panic hook that prevents abort
+    panic::set_hook(Box::new(|panic_info| {
+        if let Some(location) = panic_info.location() {
+            eprintln!(
+                "Warning: Processing error in {} at line {}: {}",
+                location.file(),
+                location.line(),
+                panic_info
+            );
+        } else {
+            eprintln!("Warning: Processing error occurred: {}", panic_info);
+        }
+    }));
+
+    // Run the program in a catch_unwind to prevent unwinding across FFI boundaries
+    let result = panic::catch_unwind(|| {
+        if let Err(e) = run() {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    });
+
+    if result.is_err() {
+        std::process::exit(1);
+    }
 }
