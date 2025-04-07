@@ -9,190 +9,310 @@
 
 You can drop a text that contains URLs onto the app, and it will find all the URLs and save Markdown versions of the pages in a logical folder structure. The output is not perfect, but the tool is fast and robust.
 
-## Table of Contents
+## 1. Table of Contents
 
 - [Features](#features)
 - [Installation](#installation)
 - [Usage](#usage)
-- [Configuration & Retry Mechanism](#configuration--retry-mechanism)
-- [Development and Testing](#development-and-testing)
-- [CI/CD and Release Process](#cicd-and-release-process)
-- [Contributing](#contributing)
-- [How It Works](#how-it-works)
+- [Examples](#examples)
+- [Development](#development)
 - [License](#license)
 - [Author](#author)
 
-## Features
+## 2. Features
 
-### Powerful Web Content Conversion
+### 2.1. Powerful Web Content Conversion
 
 - Extracts clean web content using Monolith
 - Converts web pages to Markdown efficiently
 - Handles complex URL and encoding scenarios
 
-### Smart URL Handling
+### 2.2. Smart URL Handling
 
 - Extracts URLs from various text formats
 - Resolves and validates URLs intelligently
 - Supports base URL and relative link processing
+- **NEW**: Processes local HTML files in addition to remote URLs
 
-### Flexible Input & Output**
+### 2.3. Flexible Input & Output
 
 - Multiple input methods (file, stdin, CLI)
 - Organized Markdown file generation
 - Cross-platform compatibility
+- **NEW**: Option to pack all Markdown outputs into a single combined file
 
-### Advanced Processing
+### 2.4. Advanced Processing
 
-  - Parallel URL processing
-  - Robust error handling
+- Parallel URL processing
+- Robust error handling
+- Exponential backoff retry mechanism for network requests
 
-## Install CLI app
+## 3. Installation
 
-#### ☛ [Download CLI app](https://github.com/twardoch/twars-url2md/releases) for Mac, Windows or Linux
+### 3.1. Download Pre-compiled Binaries
 
-Pre-compiled binary builds for macOS (Apple/Intel), Windows (x86_64), and Linux (x86_64) are on the [releases page](https://github.com/twardoch/twars-url2md/releases).
+The easiest way to get started is to download the pre-compiled binary for your platform.
 
-## Other ways to install
+1. Visit the [releases page](https://github.com/twardoch/twars-url2md/releases)
+2. Download the appropriate file for your system:
+   - **macOS**: `twars-url2md-macos-universal.tar.gz` (works on both Intel and Apple Silicon)
+   - **Windows**: `twars-url2md-windows-x86_64.exe.zip`
+   - **Linux**: `twars-url2md-linux-x86_64.tar.gz`
+3. Extract the archive:
+   - **macOS/Linux**: `tar -xzf twars-url2md-*.tar.gz`
+   - **Windows**: Extract the zip file using Explorer or any archive utility
+4. Make the binary executable (macOS/Linux only): `chmod +x twars-url2md`
+5. Move the binary to a location in your PATH:
+   - **macOS/Linux**: `sudo mv twars-url2md /usr/local/bin/` or `mv twars-url2md ~/.local/bin/`
+   - **Windows**: Move to a folder in your PATH or add the folder to your PATH
 
-### From Crates.io
+### 3.2. Install from Crates.io
 
-Make sure you have [Rust](https://www.rust-lang.org/tools/install) (MSRV: **1.70.0** or later) installed, then run:
+If you have Rust installed (version 1.70.0 or later), you can install directly from crates.io:
 
 ```bash
 cargo install twars-url2md
 ```
 
-### From Source
+### 3.3. Build from Source
 
-Clone the repository and install locally:
+For the latest version or to customize the build:
 
 ```bash
+# Clone the repository
 git clone https://github.com/twardoch/twars-url2md.git
 cd twars-url2md
-cargo install --path .
+
+# Build and install
+cargo build --release
+mv target/release/twars-url2md /usr/local/bin/  # or any location in your PATH
 ```
 
-## Usage
+## 4. Usage
 
-The tool accepts URLs via a file or standard input and converts each page into a Markdown file. It also supports a base URL for resolving relative links.
-
-### Input Options
-
-- **`--input <FILE>`**
-  Read URLs from a specified file (one URL per line)
-- **`--stdin`**
-  Read URLs from standard input
-- **`--base_url <URL>`**
-  Base URL for resolving relative links
-- **Note:** Do not use both `--input` and `--stdin` simultaneously
-
-### Output Options
-
-- **`--output <DIR>`**
-  Specify output directory for Markdown files
-- If no output directory is specified, content is printed to stdout
-
-### Output Organization
-
-The tool organizes the output into a directory structure based on the URLs.
-
-- Organizes files by host and path components
-- URLs ending in `/` or with no path use `index.md`
-- Other URLs use the last path component with `.md` extension
-
-Example structure:
+### 4.1. Command Line Options
 
 ```
-output/
-├── example.com/
-│   ├── index.md
-│   └── articles/
-│       └── page.md
-└── another-site.com/
-    └── post/
-        └── article.md
+Usage: twars-url2md [OPTIONS]
+
+Options:
+  -i, --input <FILE>       Input file containing URLs or local file paths (one per line)
+  -o, --output <DIR>       Output directory for markdown files
+      --stdin              Read URLs from standard input
+      --base-url <URL>     Base URL for resolving relative links
+  -p, --pack <FILE>        Output file to pack all markdown files together
+  -v, --verbose            Enable verbose output
+  -h, --help               Print help
+  -V, --version            Print version
 ```
 
-### Examples
+### 4.2. Input Options
+
+The tool accepts URLs and local file paths from:
+
+- A file specified with `--input`
+- Standard input with `--stdin`
+- **Note:** Either `--input` or `--stdin` must be specified
+
+### 4.3. Output Options
+
+- `--output <DIR>`: Create individual Markdown files in this directory
+- `--pack <FILE>`: Combine all Markdown files into a single output file
+- You can use both options together
+
+### 4.4. Processing Local Files
+
+You can now include local HTML files in your input:
+
+- Absolute paths: `/path/to/file.html`
+- File URLs: `file:///path/to/file.html`
+- Mix of local files and remote URLs in the same input
+
+## 5. Examples
+
+### 5.1. Basic Usage
 
 ```bash
 # Process a single URL and print to stdout
-twars-url2md --stdin <<< "https://example.com"
+echo "https://example.com" | twars-url2md --stdin
 
 # Process URLs from a file with specific output directory
 twars-url2md --input urls.txt --output ./markdown_output
 
 # Process piped URLs with base URL for relative links
-cat urls.txt | twars-url2md --stdin --base_url "https://example.com" --output ./output
+cat urls.txt | twars-url2md --stdin --base-url "https://example.com" --output ./output
 
-# Show verbose output (disabled by default)
+# Show verbose output
 twars-url2md --input urls.txt --output ./output --verbose
 ```
 
-#### Batch work
+### 5.2. Using the Pack Option
 
 ```bash
-# This scans the page for links, and downloads all 260+ pages linked from that page, in about 15 seconds
-curl "https://en.wikipedia.org/wiki/Rust_(programming_language)" | twars-url2md --stdin --output work/
+# Process URLs and create a combined Markdown file
+twars-url2md --input urls.txt --pack combined.md
 
-# This downloads 15k+ pages (links from all the files downloaded previously) in 8 minutes
-cat $(fd -e md --search-path work) | twars-url2md --stdin --output work/
+# Both individual files and a combined file
+twars-url2md --input urls.txt --output ./output --pack combined.md
 ```
 
-## Development and Testing
+### 5.3. Processing Local Files
 
-`twars-url2md` efficiently processes web content through several optimized steps. It starts by extracting valid _http(s)_ URLs using the `linkify` crate, filtering out malformed links from stdin, files, or command-line inputs.
+```bash
+# Create a test HTML file
+echo "<html><body><h1>Test</h1><p>Content</p></body></html>" > test.html
 
-For each URL, `twars-url2md`:
+# Process a local HTML file
+echo "$PWD/test.html" > local_paths.txt
+twars-url2md --input local_paths.txt --output ./output
 
-- Spawns an asynchronous task with `tokio`, scaling concurrent tasks to available CPU cores
-- Uses `monolith` to fetch and clean HTML, removing scripts, styles, and media while preserving document structure
-- Processes HTML with a custom `html5ever` parser that maintains document hierarchy and handles character encoding
-- Converts content to Markdown via `htmd`, preserving headings, links, and basic formatting
-- Implements an exponential backoff retry mechanism for failed requests
-- Creates output directories based on URL domain and path using cross-platform `PathBuf`
+# Mix local and remote content
+cat > mixed.txt << EOF
+https://example.com
+file://$PWD/test.html
+EOF
+twars-url2md --input mixed.txt --pack combined.md
+```
 
-The tool provides comprehensive error handling, catches potential panics, and generates meaningful error messages. It tracks progress for multiple URLs with `indicatif` and uses `rayon` for parallel processing of large HTML documents. It processes files in chunks and uses pre-allocated data structures with estimated capacities to achieve memory efficiency.
+### 5.4. Batch Processing
 
-### Running Tests
+```bash
+# Extract and process links from a webpage
+curl "https://en.wikipedia.org/wiki/Rust_(programming_language)" | twars-url2md --stdin --output rust_wiki/
+
+# Process multiple files
+find ./html_files -name "*.html" > files_to_process.txt
+twars-url2md --input files_to_process.txt --output ./markdown_output --pack all_content.md
+```
+
+## 6. Output Organization
+
+The tool organizes output into a directory structure based on the URLs:
+
+```
+output/
+├── example.com/
+│   ├── index.md       # from https://example.com/
+│   └── articles/
+│       └── page.md    # from https://example.com/articles/page
+└── another-site.com/
+    └── post/
+        └── article.md # from https://another-site.com/post/article
+```
+
+For local files, the directory structure mirrors the file path.
+
+## 7. Development
+
+### 7.1. Running Tests
 
 ```bash
 # Run all tests
 cargo test
 
-# Run with all features
+# Run with specific features
 cargo test --all-features
 
 # Run specific test
 cargo test test_name
 ```
 
-### Code Quality Tools
+### 7.2. Code Quality Tools
 
 - **Formatting**: `cargo fmt`
 - **Linting**: `cargo clippy --all-targets --all-features`
-- **Pre-commit Hooks**: Runs formatting, clippy, and basic checks
 
+### 7.3. Publishing
 
+To publish a new release of twars-url2md:
 
-## CI/CD and Release Process
+#### 7.3.1. Prepare for Release
 
-GitHub Actions workflow includes:
+```bash
+# Update version in Cargo.toml (e.g. from 1.3.6 to 1.3.7)
+# Ensure everything works
+cargo test
+cargo clippy --all-targets --all-features
+cargo fmt --check
+```
 
-- Automated testing on pull requests
-- Code quality checks (clippy, fmt)
-- Release creation for version tags
-- Binary builds for multiple platforms
-- Automatic crates.io publishing
+#### 7.3.2. Build Locally
 
+```bash
+# Build in release mode
+cargo build --release
 
+# Test the binary
+./target/release/twars-url2md --help
+```
 
-## License
+#### 7.3.3. Publish to Crates.io
+
+```bash
+# Login to crates.io (if not already logged in)
+cargo login
+
+# Verify the package
+cargo package
+
+# Publish
+cargo publish
+```
+
+#### 7.3.4. Create GitHub Release
+
+```bash
+# Create and push a tag matching your version
+git tag -a v1.3.7 -m "Release v1.3.7"
+git push origin v1.3.7
+```
+
+The configured GitHub Actions workflow (`.github/workflows/ci.yml`) will automatically:
+- Run tests on the tag
+- Create a GitHub Release
+- Build binaries for macOS, Windows, and Linux
+- Upload the binaries to the release
+- Publish to crates.io
+
+#### 7.3.5. Manual Release (Alternative)
+
+If GitHub Actions fails, you can create the release manually:
+
+1. Go to GitHub repository → Releases → Create a new release
+2. Select your tag
+3. Build platform-specific binaries:
+
+```bash
+# macOS universal binary
+cargo build --release --target x86_64-apple-darwin
+cargo build --release --target aarch64-apple-darwin
+lipo "target/x86_64-apple-darwin/release/twars-url2md" "target/aarch64-apple-darwin/release/twars-url2md" -create -output "target/twars-url2md"
+tar czf twars-url2md-macos-universal.tar.gz -C target twars-url2md
+
+# Linux
+cargo build --release --target x86_64-unknown-linux-gnu
+tar czf twars-url2md-linux-x86_64.tar.gz -C target/x86_64-unknown-linux-gnu/release twars-url2md
+
+# Windows
+cargo build --release --target x86_64-pc-windows-msvc
+cd target/x86_64-pc-windows-msvc/release
+7z a ../../../twars-url2md-windows-x86_64.zip twars-url2md.exe
+```
+
+4. Upload these files to your GitHub release
+
+#### 7.3.6. Verify the Release
+
+- Check that the release appears on GitHub
+- Verify that binary files are attached to the release
+- Confirm the new version appears on crates.io
+- Try installing the new version: `cargo install twars-url2md`
+
+## 8. License
 
 MIT License - see [LICENSE](LICENSE) for details.
 
-## Author
+## 9. Author
 
 Adam Twardoch ([@twardoch](https://github.com/twardoch))
 

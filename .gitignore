@@ -1,3 +1,5 @@
+**/*.rs.bk
+*.pdb
 ._*
 .apdisk
 .AppleDB
@@ -14,11 +16,10 @@
 .Trashes
 .VolumeIcon.icns
 .vscode/
-*.pdb
-**/*.rs.bk
 debug/
 Icon
 Network Trash Folder
 target/
 Temporary Items
 work/
+/.specstory

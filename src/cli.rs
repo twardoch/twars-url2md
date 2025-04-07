@@ -35,6 +35,10 @@ pub struct Cli {
     #[arg(long)]
     base_url: Option<String>,
 
+    /// Output file to pack all markdown files together
+    #[arg(short = 'p', long)]
+    pack: Option<PathBuf>,
+
     /// Enable verbose output
     #[arg(short, long)]
     verbose: bool,
@@ -48,7 +52,15 @@ impl Cli {
             Self::parse()
         } else {
             match Self::try_parse() {
-                Ok(cli) => cli,
+                Ok(cli) => {
+                    // Add validation for input arguments
+                    if !cli.stdin && cli.input.is_none() {
+                        eprintln!("Error: Either --stdin or --input must be specified");
+                        eprintln!("Run with --help for usage information");
+                        std::process::exit(1);
+                    }
+                    cli
+                }
                 Err(err) => {
                     if err.kind() == clap::error::ErrorKind::DisplayHelp
                         || err.kind() == clap::error::ErrorKind::DisplayVersion
@@ -82,7 +94,11 @@ impl Cli {
         } else if let Some(input_path) = &self.input {
             fs::read_to_string(input_path)?
         } else {
-            unreachable!()
+            // Replace unreachable!() with a proper error
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Neither stdin nor input file specified",
+            ));
         };
 
         // Extract URLs from content
@@ -94,26 +110,26 @@ impl Cli {
         crate::Config {
             verbose: self.verbose,
             max_retries: 2,
-            output_base: self
-                .output
-                .clone()
-                .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from(".")),
+            output_base: self.output.clone().unwrap_or_else(|| PathBuf::from(".")),
             single_file: self.input.is_none(),
             has_output: self.output.is_some(),
+            pack_file: self.pack.clone(),
         }
     }
 }
 
 pub async fn run() -> io::Result<()> {
-    let cli = Cli::parse();
+    // Use unwrap() instead of ? because parse_args returns anyhow::Result
+    // which is not compatible with io::Result
+    let cli = match Cli::parse_args() {
+        Ok(cli) => cli,
+        Err(e) => {
+            eprintln!("Error parsing arguments: {}", e);
+            std::process::exit(1);
+        }
+    };
 
     // Validate input options
-    if !cli.stdin && cli.input.is_none() {
-        eprintln!("Error: Either --stdin or --input must be specified");
-        std::process::exit(1);
-    }
-
     if cli.stdin && cli.input.is_some() {
         eprintln!("Error: Cannot use both --stdin and --input");
         std::process::exit(1);
@@ -123,7 +139,7 @@ pub async fn run() -> io::Result<()> {
     let urls = cli.collect_urls()?;
 
     // Process output
-    if let Some(output_dir) = cli.output {
+    if let Some(output_dir) = cli.output.clone() {
         fs::create_dir_all(&output_dir)?;
         for url in urls {
             // Create markdown file for each URL
@@ -190,6 +206,7 @@ mod tests {
             output: None,
             stdin: false,
             base_url: None,
+            pack: None,
             verbose: false,
         };
 

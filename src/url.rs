@@ -4,6 +4,7 @@ use html5ever::tendril::TendrilSink;
 use linkify::{LinkFinder, LinkKind};
 use markup5ever_rcdom as rcdom;
 use rayon::prelude::*;
+use regex;
 use std::path::{Path, PathBuf};
 use tokio::time::Duration;
 pub use url::Url;
@@ -46,16 +47,26 @@ pub fn extract_urls_from_text(text: &str, base_url: Option<&str>) -> Vec<String>
     let estimated_capacity = text.len() / 100; // More conservative estimate
     let mut urls = Vec::with_capacity(estimated_capacity.min(1000));
 
-    // Process in chunks if the input is large
-    if text.len() > 1_000_000 {
-        // Process large text in chunks to avoid memory spikes
-        for chunk in text.as_bytes().chunks(1_000_000) {
-            if let Ok(chunk_str) = std::str::from_utf8(chunk) {
-                process_text_chunk(chunk_str, base_url, &mut urls);
-            }
+    // Add logic to identify local file paths
+    let file_regex = regex::Regex::new(r"^(file://)?(/[^/\s]+(?:/[^/\s]+)*\.html?)$").unwrap();
+
+    // Process text lines to extract URLs and local file paths
+    for line in text.lines() {
+        let line = line.trim();
+
+        // Check if line is a local file path
+        if file_regex.is_match(line) {
+            // Convert to file:// URL format if not already
+            let file_url = if line.starts_with("file://") {
+                line.to_string()
+            } else {
+                format!("file://{}", line)
+            };
+            urls.push(file_url);
+        } else if !line.is_empty() {
+            // Process as regular URL
+            process_text_chunk(line, base_url, &mut urls);
         }
-    } else {
-        process_text_chunk(text, base_url, &mut urls);
     }
 
     // Use unstable sort for better performance since order doesn't matter for deduplication
@@ -196,6 +207,16 @@ fn try_parse_url(url_str: &str, base_url: Option<&str>) -> Option<String> {
         return None;
     }
 
+    // Handle file:// URLs
+    if url_str.starts_with("file://") {
+        return Some(url_str.to_string());
+    }
+
+    // Check if it could be a local file path
+    if url_str.starts_with('/') && Path::new(url_str).exists() {
+        return Some(format!("file://{}", url_str));
+    }
+
     // Try parsing as absolute URL first
     if let Ok(url) = Url::parse(url_str) {
         if url.scheme() == "http" || url.scheme() == "https" {
@@ -224,6 +245,17 @@ pub async fn process_url_with_retry(
     verbose: bool,
     max_retries: u32,
 ) -> Result<(), (String, anyhow::Error)> {
+    // Special handling for file:// URLs - no retry needed
+    if url.starts_with("file://") {
+        if verbose {
+            eprintln!("Processing local file: {}", url);
+        }
+        match crate::html::process_url_async(url, output_path, verbose).await {
+            Ok(_) => return Ok(()),
+            Err(e) => return Err((url.to_string(), e)),
+        }
+    }
+
     let mut last_error = None;
 
     for attempt in 0..=max_retries {
@@ -248,6 +280,47 @@ pub async fn process_url_with_retry(
     }
 
     Err((url.to_string(), last_error.unwrap()))
+}
+
+/// Process a URL and return the Markdown content
+pub async fn process_url_with_content(
+    url: &str,
+    output_path: Option<PathBuf>,
+    verbose: bool,
+    max_retries: u32,
+) -> Result<Option<String>, (String, anyhow::Error)> {
+    let mut last_error = None;
+    let mut content = None;
+
+    for attempt in 0..=max_retries {
+        if attempt > 0 && verbose {
+            eprintln!(
+                "Retrying {} (attempt {}/{})",
+                url,
+                attempt + 1,
+                max_retries + 1
+            );
+        }
+
+        match crate::html::process_url_with_content(url, output_path.clone(), verbose).await {
+            Ok(md_content) => {
+                content = Some(md_content);
+                break;
+            }
+            Err(e) => {
+                last_error = Some(e);
+                if attempt < max_retries {
+                    tokio::time::sleep(Duration::from_secs(1 << attempt)).await;
+                }
+            }
+        }
+    }
+
+    if let Some(content) = content {
+        Ok(Some(content))
+    } else {
+        Err((url.to_string(), last_error.unwrap()))
+    }
 }
 
 #[cfg(test)]

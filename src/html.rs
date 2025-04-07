@@ -101,6 +101,89 @@ pub async fn process_url_async(
     Ok(())
 }
 
+/// Process a URL by downloading its content and converting to Markdown
+/// Returns the Markdown content
+pub async fn process_url_with_content(
+    url: &str,
+    output_path: Option<PathBuf>,
+    verbose: bool,
+) -> Result<String> {
+    // Skip non-HTML URLs
+    if url.ends_with(".jpg")
+        || url.ends_with(".jpeg")
+        || url.ends_with(".png")
+        || url.ends_with(".gif")
+        || url.ends_with(".svg")
+        || url.ends_with(".webp")
+        || url.ends_with(".pdf")
+        || url.ends_with(".mp4")
+        || url.ends_with(".webm")
+    {
+        log_error(&format!("Skipping non-HTML URL: {}", url), verbose);
+        return Ok(String::new());
+    }
+
+    let client = create_http_client()?;
+
+    // Pre-allocate a reasonably sized cache with specific types
+    static CACHE_CAPACITY: usize = 1024;
+    let _cache: HashMap<String, Vec<u8>> = HashMap::with_capacity(CACHE_CAPACITY);
+
+    let html = match fetch_html(&client, url).await {
+        Ok(html) => html,
+        Err(e) => {
+            log_error(
+                &format!(
+                    "Error fetching HTML from {}: {}. Using fallback processing.",
+                    url, e
+                ),
+                verbose,
+            );
+            // Try to get raw HTML as fallback
+            client.get(url).send().await?.text().await?
+        }
+    };
+
+    let markdown = match markdown::convert_html_to_markdown(&html) {
+        Ok(md) => md,
+        Err(e) => {
+            log_error(
+                &format!(
+                    "Error converting to Markdown: {}. Using simplified conversion.",
+                    e
+                ),
+                verbose,
+            );
+            // Fallback to simpler conversion if htmd fails
+            html.replace("<br>", "\n")
+                .replace("<br/>", "\n")
+                .replace("<br />", "\n")
+                .replace("<p>", "\n\n")
+                .replace("</p>", "")
+        }
+    };
+
+    // Also write to file if output_path is specified
+    if let Some(path) = output_path {
+        if let Some(parent) = path.parent() {
+            if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                log_error(
+                    &format!("Failed to create directory {}: {}", parent.display(), e),
+                    verbose,
+                );
+            }
+        }
+        tokio::fs::write(&path, &markdown)
+            .await
+            .with_context(|| format!("Failed to write to file: {}", path.display()))?;
+        if verbose {
+            eprintln!("Created: {}", path.display());
+        }
+    }
+
+    Ok(markdown)
+}
+
 /// Create an HTTP client with appropriate headers and optimized settings
 fn create_http_client() -> Result<Client> {
     let mut headers = HeaderMap::with_capacity(4); // Pre-allocate for known headers
@@ -120,6 +203,15 @@ fn create_http_client() -> Result<Client> {
 
 /// Fetch HTML content from a URL using monolith with specified options
 async fn fetch_html(client: &Client, url: &str) -> Result<String> {
+    // Handle file:// URLs
+    if url.starts_with("file://") {
+        let path = url.strip_prefix("file://").unwrap_or(url);
+        return match tokio::fs::read_to_string(path).await {
+            Ok(content) => Ok(content),
+            Err(e) => Err(anyhow::anyhow!("Failed to read local file {}: {}", path, e)),
+        };
+    }
+
     let response = client
         .get(url)
         .send()
