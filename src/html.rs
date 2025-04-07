@@ -382,7 +382,7 @@ mod tests {
         let dom = monolith::html::html_to_dom(&html_content.as_bytes().to_vec(), "UTF-8".to_string());
 
         // Process assets and embed them
-        let mut cache_map: Cache = Cache::new(0, None);
+        let cache_map: Cache = Cache::new(0, None);
         let mut cache: Option<Cache> = Some(cache_map);
         let client = reqwest::blocking::Client::new();
         let document_url = reqwest::Url::parse("https://example.com").unwrap();
