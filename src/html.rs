@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
-use monolith::opts::Options;
+use monolith::cache::Cache;
+use monolith::core::Options;
 use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
 use reqwest::Client;
 use std::collections::HashMap;
@@ -230,7 +231,7 @@ async fn fetch_html(client: &Client, url: &str) -> Result<String> {
         return Err(anyhow::anyhow!("Not an HTML page: {}", content_type));
     }
 
-    let (_, charset, _) = monolith::utils::parse_content_type(content_type);
+    let (_, charset, _) = monolith::core::parse_content_type(content_type);
 
     let html_bytes = response
         .bytes()
@@ -288,7 +289,8 @@ async fn fetch_html(client: &Client, url: &str) -> Result<String> {
                 };
 
                 // Try to process assets with error handling
-                let mut cache = HashMap::new();
+                let cache_map: Cache = Cache::new(0, None);
+                let mut cache: Option<Cache> = Some(cache_map);
                 let blocking_client = reqwest::blocking::Client::new();
 
                 // Wrap all Monolith operations in catch_unwind
@@ -377,11 +379,11 @@ mod tests {
         };
 
         // Create DOM from HTML
-        let dom =
-            monolith::html::html_to_dom(&html_content.as_bytes().to_vec(), "UTF-8".to_string());
+        let dom = monolith::html::html_to_dom(&html_content.as_bytes().to_vec(), "UTF-8".to_string());
 
         // Process assets and embed them
-        let mut cache = HashMap::new();
+        let mut cache_map: Cache = Cache::new(0, None);
+        let mut cache: Option<Cache> = Some(cache_map);
         let client = reqwest::blocking::Client::new();
         let document_url = reqwest::Url::parse("https://example.com").unwrap();
         monolith::html::walk_and_embed_assets(
