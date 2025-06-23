@@ -1,0 +1,2143 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.github/
+  workflows/
+    ci.yml
+src/
+  cli.rs
+  error.rs
+  html.rs
+  lib.rs
+  main.rs
+  markdown.rs
+  url.rs
+.gitignore
+build.rs
+Cargo.toml
+LICENSE
+README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path=".github/workflows/ci.yml">
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features
+
+      - name: Run tests
+        run: cargo test --all-features
+
+  create-release:
+    name: Create Release
+    needs: [test]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+  build-release:
+    name: Build Release Binary
+    needs: create-release
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: twars-url2md-linux-x86_64
+          - os: macos-latest
+            target: universal-apple-darwin
+            name: twars-url2md-macos-universal
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: twars-url2md-windows-x86_64.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+
+      - name: Build macOS universal binary
+        if: matrix.os == 'macos-latest'
+        run: |
+          cargo build --release --target x86_64-apple-darwin
+          cargo build --release --target aarch64-apple-darwin
+          lipo "target/x86_64-apple-darwin/release/twars-url2md" "target/aarch64-apple-darwin/release/twars-url2md" -create -output "target/twars-url2md"
+
+      - name: Build target (non-macOS)
+        if: matrix.os != 'macos-latest'
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target ${{ matrix.target }}
+
+      - name: Prepare binary
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cd target/${{ matrix.target }}/release
+            7z a ../../../${{ matrix.name }}.zip twars-url2md.exe
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            tar czf ${{ matrix.name }}.tar.gz -C target twars-url2md
+          else
+            cd target/${{ matrix.target }}/release
+            tar czf ../../../${{ matrix.name }}.tar.gz twars-url2md
+          fi
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./${{ matrix.name }}.${{ runner.os == 'Windows' && 'zip' || 'tar.gz' }}
+          asset_name: ${{ matrix.name }}.${{ runner.os == 'Windows' && 'zip' || 'tar.gz' }}
+          asset_content_type: application/octet-stream
+
+  publish-crate:
+    name: Publish to crates.io
+    needs: [test, create-release]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Publish to crates.io
+        run: cargo publish --token ${CRATES_TOKEN} --allow-dirty
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+</file>
+
+<file path="src/cli.rs">
+use anyhow::Result;
+use clap::Parser;
+use std::fs;
+use std::io::{self, Read};
+use std::path::PathBuf;
+use tokio;
+
+use crate::url::extract_urls_from_text;
+
+/// Command-line interface for URL processing
+#[derive(Parser)]
+#[command(
+    name = "twars-url2md",
+    author = "Adam Twardoch",
+    version = env!("CARGO_PKG_VERSION"),
+    about = "Convert web pages to clean Markdown format while preserving content structure",
+    long_about = "\
+A powerful CLI tool that fetches web pages and converts them to clean Markdown format \
+using Monolith for content extraction and htmd for conversion"
+)]
+pub struct Cli {
+    /// Input file to process
+    #[arg(short, long)]
+    input: Option<PathBuf>,
+
+    /// Output directory for markdown files
+    #[arg(short, long)]
+    output: Option<PathBuf>,
+
+    /// Read from stdin
+    #[arg(long)]
+    stdin: bool,
+
+    /// Base URL for resolving relative URLs
+    #[arg(long)]
+    base_url: Option<String>,
+
+    /// Output file to pack all markdown files together
+    #[arg(short = 'p', long)]
+    pack: Option<PathBuf>,
+
+    /// Enable verbose output
+    #[arg(short, long)]
+    verbose: bool,
+}
+
+impl Cli {
+    /// Parse command-line arguments with custom error handling
+    pub fn parse_args() -> Result<Self> {
+        let args: Vec<_> = std::env::args().collect();
+        let cli = if args.iter().any(|arg| arg == "-v" || arg == "--verbose") {
+            Self::parse()
+        } else {
+            match Self::try_parse() {
+                Ok(cli) => {
+                    // Add validation for input arguments
+                    if !cli.stdin && cli.input.is_none() {
+                        eprintln!("Error: Either --stdin or --input must be specified");
+                        eprintln!("Run with --help for usage information");
+                        std::process::exit(1);
+                    }
+                    cli
+                }
+                Err(err) => {
+                    if err.kind() == clap::error::ErrorKind::DisplayHelp
+                        || err.kind() == clap::error::ErrorKind::DisplayVersion
+                    {
+                        println!("{}", err);
+                        std::process::exit(0);
+                    }
+                    eprintln!(
+                        "Error: {}",
+                        err.render()
+                            .to_string()
+                            .lines()
+                            .next()
+                            .unwrap_or("Invalid usage")
+                    );
+                    std::process::exit(1);
+                }
+            }
+        };
+
+        Ok(cli)
+    }
+
+    /// Collect URLs from all input sources
+    pub fn collect_urls(&self) -> io::Result<Vec<String>> {
+        // Get content from stdin or file
+        let content = if self.stdin {
+            let mut buffer = String::new();
+            io::stdin().read_to_string(&mut buffer)?;
+            buffer
+        } else if let Some(input_path) = &self.input {
+            fs::read_to_string(input_path)?
+        } else {
+            // Replace unreachable!() with a proper error
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Neither stdin nor input file specified",
+            ));
+        };
+
+        // Extract URLs from content
+        Ok(extract_urls_from_text(&content, self.base_url.as_deref()))
+    }
+
+    /// Create configuration from CLI arguments
+    pub fn create_config(&self) -> crate::Config {
+        crate::Config {
+            verbose: self.verbose,
+            max_retries: 2,
+            output_base: self.output.clone().unwrap_or_else(|| PathBuf::from(".")),
+            single_file: self.input.is_none(),
+            has_output: self.output.is_some(),
+            pack_file: self.pack.clone(),
+        }
+    }
+}
+
+pub async fn run() -> io::Result<()> {
+    // Use unwrap() instead of ? because parse_args returns anyhow::Result
+    // which is not compatible with io::Result
+    let cli = match Cli::parse_args() {
+        Ok(cli) => cli,
+        Err(e) => {
+            eprintln!("Error parsing arguments: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    // Validate input options
+    if cli.stdin && cli.input.is_some() {
+        eprintln!("Error: Cannot use both --stdin and --input");
+        std::process::exit(1);
+    }
+
+    // Extract URLs from content
+    let urls = cli.collect_urls()?;
+
+    // Process output
+    if let Some(output_dir) = cli.output.clone() {
+        fs::create_dir_all(&output_dir)?;
+        for url in urls {
+            // Create markdown file for each URL
+            let mut file_path = output_dir.clone();
+            file_path.push(format!("{}.md", url_to_filename(&url)));
+            tokio::fs::write(file_path, format!("# {}\n\n{}\n", url, url)).await?;
+        }
+    } else {
+        // Print URLs to stdout if no output directory specified
+        for url in urls {
+            println!("{}", url);
+        }
+    }
+
+    Ok(())
+}
+
+fn url_to_filename(url: &str) -> String {
+    // Convert URL to a valid filename
+    let mut filename = url
+        .replace(
+            [
+                ':', '/', '?', '#', '[', ']', '@', '!', '$', '&', '\'', '(', ')', '*', '+', ',',
+                ';', '=',
+            ],
+            "_",
+        )
+        .replace([' ', '\t', '\n', '\r'], "");
+
+    // Ensure the filename is not too long
+    if filename.len() > 200 {
+        filename.truncate(200);
+    }
+
+    filename
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_collect_urls_from_text_file() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("sample_urls.txt");
+        let test_content = "\
+            https://example.com/\n\
+            http://test.org/\n\
+            https://rust-lang.org/\n\
+            https://github.com/example/repo\n\
+            http://blog.example.com/post/123\n\
+            https://docs.example.com/guide#section\n\
+            ftp://invalid.com\n\
+            not-a-url.com\n\
+            www.example.com";
+
+        // Create test file with sample URLs
+        fs::write(&test_file, test_content)?;
+
+        // Test file input
+        let cli = Cli {
+            input: Some(test_file),
+            output: None,
+            stdin: false,
+            base_url: None,
+            pack: None,
+            verbose: false,
+        };
+
+        let urls = cli.collect_urls()?;
+        println!("Found URLs: {:?}", urls);
+        verify_urls(&urls);
+
+        Ok(())
+    }
+
+    fn verify_urls(urls: &[String]) {
+        println!("Found URLs: {:?}", urls);
+
+        // Test for basic URLs (with trailing slashes)
+        assert!(urls.iter().any(|u| u == "https://example.com/"));
+        assert!(urls.iter().any(|u| u == "http://test.org/"));
+        assert!(urls.iter().any(|u| u == "https://rust-lang.org/"));
+
+        // Test for URLs with paths and fragments
+        assert!(urls.iter().any(|u| u == "https://github.com/example/repo"));
+        assert!(urls.iter().any(|u| u == "http://blog.example.com/post/123"));
+        assert!(urls
+            .iter()
+            .any(|u| u == "https://docs.example.com/guide#section"));
+
+        // Make sure invalid URLs are not included
+        assert!(!urls.iter().any(|u| u.starts_with("ftp://")));
+        assert!(!urls.iter().any(|u| u == "not-a-url.com"));
+        assert!(!urls.iter().any(|u| u == "www.example.com"));
+
+        assert_eq!(urls.len(), 6, "Expected exactly 6 valid URLs");
+    }
+}
+</file>
+
+<file path="src/error.rs">
+use std::fmt;
+
+/// Custom error type for URL processing
+#[derive(Debug)]
+pub enum Error {
+    /// Error occurred while fetching URL
+    Fetch(String),
+    /// Error occurred while processing HTML
+    Html(String),
+    /// Error occurred while converting to Markdown
+    Markdown(String),
+    /// Error occurred while writing output
+    Output(String),
+    /// Other errors
+    Other(String),
+}
+
+impl std::error::Error for Error {}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::Fetch(msg) => write!(f, "Failed to fetch URL: {}", msg),
+            Error::Html(msg) => write!(f, "Failed to process HTML: {}", msg),
+            Error::Markdown(msg) => write!(f, "Failed to convert to Markdown: {}", msg),
+            Error::Output(msg) => write!(f, "Failed to write output: {}", msg),
+            Error::Other(msg) => write!(f, "{}", msg),
+        }
+    }
+}
+
+impl From<reqwest::Error> for Error {
+    fn from(err: reqwest::Error) -> Self {
+        Error::Fetch(err.to_string())
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(err: std::io::Error) -> Self {
+        Error::Output(err.to_string())
+    }
+}
+
+impl From<anyhow::Error> for Error {
+    fn from(err: anyhow::Error) -> Self {
+        Error::Other(err.to_string())
+    }
+}
+</file>
+
+<file path="src/html.rs">
+use anyhow::{Context, Result};
+use monolith::cache::Cache;
+use monolith::core::Options;
+use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
+use reqwest::Client;
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Duration;
+
+use crate::markdown;
+
+/// Log an error message if verbose mode is enabled
+fn log_error(msg: &str, verbose: bool) {
+    if verbose {
+        eprintln!("Warning: {}", msg);
+    }
+}
+
+/// Process a URL by downloading its content and converting to Markdown
+pub async fn process_url_async(
+    url: &str,
+    output_path: Option<PathBuf>,
+    verbose: bool,
+) -> Result<()> {
+    // Skip non-HTML URLs
+    if url.ends_with(".jpg")
+        || url.ends_with(".jpeg")
+        || url.ends_with(".png")
+        || url.ends_with(".gif")
+        || url.ends_with(".svg")
+        || url.ends_with(".webp")
+        || url.ends_with(".pdf")
+        || url.ends_with(".mp4")
+        || url.ends_with(".webm")
+    {
+        log_error(&format!("Skipping non-HTML URL: {}", url), verbose);
+        return Ok(());
+    }
+
+    let client = create_http_client()?;
+
+    // Pre-allocate a reasonably sized cache with specific types
+    static CACHE_CAPACITY: usize = 1024;
+    let _cache: HashMap<String, Vec<u8>> = HashMap::with_capacity(CACHE_CAPACITY);
+
+    let html = match fetch_html(&client, url).await {
+        Ok(html) => html,
+        Err(e) => {
+            log_error(
+                &format!(
+                    "Error fetching HTML from {}: {}. Using fallback processing.",
+                    url, e
+                ),
+                verbose,
+            );
+            // Try to get raw HTML as fallback
+            client.get(url).send().await?.text().await?
+        }
+    };
+
+    let markdown = match markdown::convert_html_to_markdown(&html) {
+        Ok(md) => md,
+        Err(e) => {
+            log_error(
+                &format!(
+                    "Error converting to Markdown: {}. Using simplified conversion.",
+                    e
+                ),
+                verbose,
+            );
+            // Fallback to simpler conversion if htmd fails
+            html.replace("<br>", "\n")
+                .replace("<br/>", "\n")
+                .replace("<br />", "\n")
+                .replace("<p>", "\n\n")
+                .replace("</p>", "")
+        }
+    };
+
+    match output_path {
+        Some(path) => {
+            // Use async file operations for better I/O performance
+            if let Some(parent) = path.parent() {
+                if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                    log_error(
+                        &format!("Failed to create directory {}: {}", parent.display(), e),
+                        verbose,
+                    );
+                }
+            }
+            tokio::fs::write(&path, markdown)
+                .await
+                .with_context(|| format!("Failed to write to file: {}", path.display()))?;
+            if verbose {
+                eprintln!("Created: {}", path.display());
+            }
+        }
+        None => println!("{}", markdown),
+    }
+
+    Ok(())
+}
+
+/// Process a URL by downloading its content and converting to Markdown
+/// Returns the Markdown content
+pub async fn process_url_with_content(
+    url: &str,
+    output_path: Option<PathBuf>,
+    verbose: bool,
+) -> Result<String> {
+    // Skip non-HTML URLs
+    if url.ends_with(".jpg")
+        || url.ends_with(".jpeg")
+        || url.ends_with(".png")
+        || url.ends_with(".gif")
+        || url.ends_with(".svg")
+        || url.ends_with(".webp")
+        || url.ends_with(".pdf")
+        || url.ends_with(".mp4")
+        || url.ends_with(".webm")
+    {
+        log_error(&format!("Skipping non-HTML URL: {}", url), verbose);
+        return Ok(String::new());
+    }
+
+    let client = create_http_client()?;
+
+    // Pre-allocate a reasonably sized cache with specific types
+    static CACHE_CAPACITY: usize = 1024;
+    let _cache: HashMap<String, Vec<u8>> = HashMap::with_capacity(CACHE_CAPACITY);
+
+    let html = match fetch_html(&client, url).await {
+        Ok(html) => html,
+        Err(e) => {
+            log_error(
+                &format!(
+                    "Error fetching HTML from {}: {}. Using fallback processing.",
+                    url, e
+                ),
+                verbose,
+            );
+            // Try to get raw HTML as fallback
+            client.get(url).send().await?.text().await?
+        }
+    };
+
+    let markdown = match markdown::convert_html_to_markdown(&html) {
+        Ok(md) => md,
+        Err(e) => {
+            log_error(
+                &format!(
+                    "Error converting to Markdown: {}. Using simplified conversion.",
+                    e
+                ),
+                verbose,
+            );
+            // Fallback to simpler conversion if htmd fails
+            html.replace("<br>", "\n")
+                .replace("<br/>", "\n")
+                .replace("<br />", "\n")
+                .replace("<p>", "\n\n")
+                .replace("</p>", "")
+        }
+    };
+
+    // Also write to file if output_path is specified
+    if let Some(path) = output_path {
+        if let Some(parent) = path.parent() {
+            if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                log_error(
+                    &format!("Failed to create directory {}: {}", parent.display(), e),
+                    verbose,
+                );
+            }
+        }
+        tokio::fs::write(&path, &markdown)
+            .await
+            .with_context(|| format!("Failed to write to file: {}", path.display()))?;
+        if verbose {
+            eprintln!("Created: {}", path.display());
+        }
+    }
+
+    Ok(markdown)
+}
+
+/// Create an HTTP client with appropriate headers and optimized settings
+fn create_http_client() -> Result<Client> {
+    let mut headers = HeaderMap::with_capacity(4); // Pre-allocate for known headers
+    headers.insert(
+        USER_AGENT,
+        HeaderValue::from_static(crate::USER_AGENT_STRING),
+    );
+
+    Client::builder()
+        .default_headers(headers)
+        .pool_idle_timeout(Duration::from_secs(30))
+        .pool_max_idle_per_host(10)
+        .tcp_keepalive(Duration::from_secs(30))
+        .build()
+        .context("Failed to create HTTP client")
+}
+
+/// Fetch HTML content from a URL using monolith with specified options
+async fn fetch_html(client: &Client, url: &str) -> Result<String> {
+    // Handle file:// URLs
+    if url.starts_with("file://") {
+        let path = url.strip_prefix("file://").unwrap_or(url);
+        return match tokio::fs::read_to_string(path).await {
+            Ok(content) => Ok(content),
+            Err(e) => Err(anyhow::anyhow!("Failed to read local file {}: {}", path, e)),
+        };
+    }
+
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .with_context(|| format!("Failed to fetch URL: {}", url))?;
+
+    // Check content type
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("text/html; charset=utf-8");
+
+    // Skip non-HTML content
+    if !content_type.contains("text/html") {
+        return Err(anyhow::anyhow!("Not an HTML page: {}", content_type));
+    }
+
+    let (_, charset, _) = monolith::core::parse_content_type(content_type);
+
+    let html_bytes = response
+        .bytes()
+        .await
+        .with_context(|| format!("Failed to read response body from URL: {}", url))?;
+
+    // First try simple HTML cleanup without Monolith
+    let simple_html = String::from_utf8_lossy(&html_bytes)
+        .replace("<!--", "")
+        .replace("-->", "")
+        .replace("<script", "<!--<script")
+        .replace("</script>", "</script>-->")
+        .replace("<style", "<!--<style")
+        .replace("</style>", "</style>-->");
+
+    // Try Monolith processing in a blocking task
+    let options = Options {
+        no_video: true,
+        isolate: true,
+        no_js: true,
+        no_css: true,
+        base_url: Some(url.to_string()),
+        ignore_errors: true,
+        no_fonts: true,
+        no_images: true,
+        insecure: true,
+        no_metadata: true,
+        silent: true,
+        no_frames: true,       // Disable iframe processing
+        unwrap_noscript: true, // Handle noscript content
+        ..Default::default()
+    };
+
+    let document_url =
+        reqwest::Url::parse(url).with_context(|| format!("Failed to parse URL: {}", url))?;
+    let html_bytes = Arc::new(html_bytes.to_vec());
+    let charset = charset.clone();
+
+    // Try to process with Monolith, but fall back to simple HTML if anything fails
+    let processed_html = tokio::task::spawn_blocking({
+        let html_bytes = Arc::clone(&html_bytes);
+        let simple_html = simple_html.clone();
+        move || {
+            // Set a thread-local panic hook that returns control instead of aborting
+            let prev_hook = std::panic::take_hook();
+            std::panic::set_hook(Box::new(|_| {}));
+
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                // Try to create DOM with error handling
+                let dom = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    monolith::html::html_to_dom(&html_bytes, charset.clone())
+                })) {
+                    Ok(dom) => dom,
+                    Err(_) => return simple_html.as_bytes().to_vec(),
+                };
+
+                // Try to process assets with error handling
+                let cache_map: Cache = Cache::new(0, None);
+                let mut cache: Option<Cache> = Some(cache_map);
+                let blocking_client = reqwest::blocking::Client::new();
+
+                // Wrap all Monolith operations in catch_unwind
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    monolith::html::walk_and_embed_assets(
+                        &mut cache,
+                        &blocking_client,
+                        &document_url,
+                        &dom.document,
+                        &options,
+                    );
+
+                    monolith::html::serialize_document(dom, charset, &options)
+                }));
+
+                match result {
+                    Ok(html) => html,
+                    Err(_) => simple_html.as_bytes().to_vec(),
+                }
+            }));
+
+            // Restore the previous panic hook
+            std::panic::set_hook(prev_hook);
+
+            // Return result or fallback to simple HTML
+            match result {
+                Ok(html) => html,
+                Err(_) => simple_html.as_bytes().to_vec(),
+            }
+        }
+    })
+    .await
+    .unwrap_or_else(|_| simple_html.as_bytes().to_vec());
+
+    String::from_utf8(processed_html)
+        .map_err(|e| anyhow::anyhow!("Failed to convert processed HTML to UTF-8: {}", e))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_html_processing() -> Result<()> {
+        // Sample HTML with various elements that should be processed
+        let html_content = r#"
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Test Page</title>
+                <style>body { color: red; }</style>
+                <script>console.log('test');</script>
+                <link rel="stylesheet" href="style.css">
+            </head>
+            <body>
+                <h1>Main Heading</h1>
+                <h2>Sub Heading</h2>
+                <ul>
+                    <li>List item 1</li>
+                    <li>List item 2</li>
+                </ul>
+                <a href="https://example.com">A link</a>
+                <img src="image.jpg" />
+                <video src="video.mp4"></video>
+                <iframe src="frame.html"></iframe>
+                <font face="Arial">Font text</font>
+            </body>
+            </html>
+        "#;
+
+        // Create monolith options with specified flags
+        let options = Options {
+            no_video: true,
+            isolate: true,
+            no_js: true,
+            no_css: true,
+            base_url: Some("https://example.com".to_string()),
+            ignore_errors: true,
+            no_fonts: true,
+            no_images: true,
+            insecure: true,
+            no_metadata: true,
+            silent: true,
+            ..Default::default()
+        };
+
+        // Create DOM from HTML
+        let dom = monolith::html::html_to_dom(&html_content.as_bytes().to_vec(), "UTF-8".to_string());
+
+        // Process assets and embed them
+        let cache_map: Cache = Cache::new(0, None);
+        let mut cache: Option<Cache> = Some(cache_map);
+        let client = reqwest::blocking::Client::new();
+        let document_url = reqwest::Url::parse("https://example.com").unwrap();
+        monolith::html::walk_and_embed_assets(
+            &mut cache,
+            &client,
+            &document_url,
+            &dom.document,
+            &options,
+        );
+
+        // Serialize back to HTML
+        let processed_html = monolith::html::serialize_document(dom, "UTF-8".to_string(), &options);
+        let processed_html = String::from_utf8(processed_html).unwrap();
+
+        // Convert to markdown
+        let markdown = markdown::convert_html_to_markdown(&processed_html)?;
+
+        // Verify content structure is preserved
+        assert!(markdown.contains("# Main Heading"));
+        assert!(markdown.contains("## Sub Heading"));
+        assert!(markdown.contains("*   List item 1"));
+        assert!(markdown.contains("*   List item 2"));
+        assert!(markdown.contains("[A link](https://example.com)"));
+
+        // Verify that elements are properly handled according to options
+        assert!(!processed_html.contains("src=\"video.mp4\"")); // no_video
+        assert!(!processed_html.contains("src=\"image.jpg\"")); // no_images
+        assert!(!processed_html.contains("href=\"style.css\"")); // no_css
+        assert!(!processed_html.contains("src=\"frame.html\"")); // isolate
+        assert!(!processed_html.contains("console.log")); // no_js
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_markdown_output() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let output_path = temp_dir.path().join("test.md");
+
+        // Simple HTML content
+        let html = "<h1>Test Content</h1>";
+
+        // Process HTML directly
+        let markdown = markdown::convert_html_to_markdown(html)?;
+
+        // Write to output file
+        fs::write(&output_path, &markdown)?;
+
+        // Verify file exists and contains expected content
+        assert!(output_path.exists());
+        let output_content = fs::read_to_string(&output_path)?;
+        assert!(output_content.contains("# Test Content"));
+
+        Ok(())
+    }
+}
+</file>
+
+<file path="src/lib.rs">
+use crate::url::Url;
+use anyhow::Result;
+use futures::stream::{self, StreamExt};
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::thread;
+
+pub mod cli;
+mod error;
+mod html;
+mod markdown;
+pub mod url;
+
+pub use cli::Cli;
+pub use error::Error;
+
+include!(concat!(env!("OUT_DIR"), "/built.rs"));
+
+/// Version information with build details
+pub fn version() -> String {
+    format!(
+        "{}\nBuild Time: {}\nTarget: {}\nProfile: {}",
+        env!("CARGO_PKG_VERSION"),
+        BUILT_TIME_UTC,
+        TARGET,
+        PROFILE
+    )
+}
+
+/// Default user agent string for HTTP requests
+pub(crate) const USER_AGENT_STRING: &str =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:123.0) Gecko/20100101 Firefox/123.0";
+
+/// Configuration for URL processing
+#[derive(Debug, Clone)]
+pub struct Config {
+    pub verbose: bool,
+    pub max_retries: u32,
+    pub output_base: PathBuf,
+    pub single_file: bool,
+    pub has_output: bool,
+    pub pack_file: Option<PathBuf>,
+}
+
+/// Process a list of URLs with the given configuration
+pub async fn process_urls(
+    urls: Vec<String>,
+    config: Config,
+) -> Result<Vec<(String, anyhow::Error)>> {
+    use indicatif::{ProgressBar, ProgressStyle};
+    use tokio::io::AsyncWriteExt;
+
+    let pb = if urls.len() > 1 {
+        let pb = ProgressBar::new(urls.len() as u64);
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template(
+                    "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
+                )
+                .unwrap()
+                .progress_chars("#>-"),
+        );
+        Some(pb)
+    } else {
+        None
+    };
+
+    let pb = Arc::new(pb);
+    // Adaptive concurrency based on CPU cores
+    let concurrency_limit = thread::available_parallelism()
+        .map(|n| n.get() * 2) // 2 tasks per CPU core
+        .unwrap_or(10);
+
+    // If pack_file is specified, collect the markdown content
+    let should_pack = config.pack_file.is_some();
+    let pack_path = config.pack_file.clone();
+    let packed_content = if should_pack {
+        Arc::new(tokio::sync::Mutex::new(Vec::with_capacity(urls.len())))
+    } else {
+        Arc::new(tokio::sync::Mutex::new(Vec::new()))
+    };
+
+    // Clone the URLs vector before moving it into the stream
+    let urls_for_ordering = urls.clone();
+
+    let results = stream::iter(urls.into_iter().map(|url| {
+        let pb = Arc::clone(&pb);
+        let config = config.clone();
+        let packed_content = Arc::clone(&packed_content);
+        async move {
+            if config.verbose {
+                eprintln!("Processing: {}", url);
+            }
+            match Url::parse(&url) {
+                Ok(url_parsed) => {
+                    let out_path = if config.single_file
+                        && config.has_output
+                        && !config.output_base.is_dir()
+                    {
+                        Some(config.output_base)
+                    } else {
+                        url::create_output_path(&url_parsed, &config.output_base).ok()
+                    };
+
+                    let result = if should_pack {
+                        // Process URL and collect content for packing
+                        match url::process_url_with_content(
+                            &url,
+                            out_path,
+                            config.verbose,
+                            config.max_retries,
+                        )
+                        .await
+                        {
+                            Ok(content) => {
+                                if let Some(md_content) = content {
+                                    let mut content_vec = packed_content.lock().await;
+                                    content_vec.push((url.clone(), md_content));
+                                }
+                                Ok(())
+                            }
+                            Err(e) => Err(e),
+                        }
+                    } else {
+                        // Process URL normally
+                        url::process_url_with_retry(
+                            &url,
+                            out_path,
+                            config.verbose,
+                            config.max_retries,
+                        )
+                        .await
+                    };
+
+                    if let Some(pb) = &*pb {
+                        pb.inc(1);
+                    }
+                    result
+                }
+                Err(e) => {
+                    if let Some(pb) = &*pb {
+                        pb.inc(1);
+                    }
+                    Err((url, e.into()))
+                }
+            }
+        }
+    }))
+    .buffer_unordered(concurrency_limit)
+    .collect::<Vec<_>>()
+    .await;
+
+    if let Some(pb) = &*pb {
+        pb.finish_with_message("Done!");
+    }
+
+    // Write the packed content to the specified file
+    if let Some(pack_path) = pack_path {
+        if config.verbose {
+            eprintln!("Writing packed content to {}", pack_path.display());
+        }
+
+        if let Some(parent) = pack_path.parent() {
+            if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                eprintln!(
+                    "Warning: Failed to create directory {}: {}",
+                    parent.display(),
+                    e
+                );
+            }
+        }
+
+        let mut packed_file = match tokio::fs::File::create(&pack_path).await {
+            Ok(file) => file,
+            Err(e) => {
+                eprintln!("Error creating packed file: {}", e);
+                return Ok(results.into_iter().filter_map(|r| r.err()).collect());
+            }
+        };
+
+        // Get the locked packed_content
+        let mut content_to_write = packed_content.lock().await;
+
+        // Reorder packed_content to match the original URL order
+        let mut url_to_index = std::collections::HashMap::new();
+        for (i, url) in urls_for_ordering.iter().enumerate() {
+            url_to_index.insert(url.clone(), i);
+        }
+
+        content_to_write.sort_by(|a, b| {
+            let a_idx = url_to_index.get(&a.0).unwrap_or(&usize::MAX);
+            let b_idx = url_to_index.get(&b.0).unwrap_or(&usize::MAX);
+            a_idx.cmp(b_idx)
+        });
+
+        for (url, content) in content_to_write.iter() {
+            if let Err(e) = packed_file
+                .write_all(format!("# {}\n\n{}\n\n---\n\n", url, content).as_bytes())
+                .await
+            {
+                eprintln!("Error writing to packed file: {}", e);
+            }
+        }
+    }
+
+    // Process results as before
+    let mut errors = Vec::new();
+    for r in results {
+        match r {
+            Ok(()) => {}
+            Err(e) => {
+                eprintln!("Warning: Failed to process {}: {}", e.0, e.1);
+                errors.push(e);
+            }
+        }
+    }
+
+    Ok(errors)
+}
+</file>
+
+<file path="src/main.rs">
+use anyhow::Result;
+use std::panic;
+
+fn run() -> Result<()> {
+    // Disable backtrace for cleaner error messages
+    std::env::set_var("RUST_BACKTRACE", "0");
+
+    // Parse command-line arguments
+    let cli = twars_url2md::cli::Cli::parse_args()?;
+
+    // Collect URLs from all input sources
+    let urls = cli.collect_urls()?;
+
+    // Create configuration
+    let config = cli.create_config();
+    let verbose = config.verbose;
+
+    // Process URLs
+    let rt = tokio::runtime::Runtime::new()?;
+    let errors = rt.block_on(twars_url2md::process_urls(urls, config))?;
+
+    // Report summary
+    if !errors.is_empty() && verbose {
+        eprintln!("\nSummary of failures:");
+        for (url, error) in &errors {
+            eprintln!("  {} - {}", url, error);
+        }
+        eprintln!("\n{} URLs failed to process", errors.len());
+    }
+
+    Ok(())
+}
+
+fn main() {
+    // Set custom panic hook that prevents abort
+    panic::set_hook(Box::new(|panic_info| {
+        if let Some(location) = panic_info.location() {
+            eprintln!(
+                "Warning: Processing error in {} at line {}: {}",
+                location.file(),
+                location.line(),
+                panic_info
+            );
+        } else {
+            eprintln!("Warning: Processing error occurred: {}", panic_info);
+        }
+    }));
+
+    // Run the program in a catch_unwind to prevent unwinding across FFI boundaries
+    let result = panic::catch_unwind(|| {
+        if let Err(e) = run() {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    });
+
+    if result.is_err() {
+        std::process::exit(1);
+    }
+}
+</file>
+
+<file path="src/markdown.rs">
+use anyhow::{Context, Result};
+
+/// Convert HTML to Markdown
+pub fn convert_html_to_markdown(html: &str) -> Result<String> {
+    htmd::convert(html).context("Failed to convert HTML to Markdown")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_convert_html_to_markdown() -> Result<()> {
+        let html = r#"
+            <html>
+                <body>
+                    <h1>Test</h1>
+                    <p>Hello, world!</p>
+                </body>
+            </html>
+        "#;
+
+        let markdown = convert_html_to_markdown(html)?;
+        assert!(markdown.contains("# Test"));
+        assert!(markdown.contains("Hello, world!"));
+
+        Ok(())
+    }
+}
+</file>
+
+<file path="src/url.rs">
+use anyhow::{Context, Result};
+use html5ever::parse_document;
+use html5ever::tendril::TendrilSink;
+use linkify::{LinkFinder, LinkKind};
+use markup5ever_rcdom as rcdom;
+use rayon::prelude::*;
+use regex;
+use std::path::{Path, PathBuf};
+use tokio::time::Duration;
+pub use url::Url;
+
+/// Create an output path for a URL based on its structure
+pub fn create_output_path(url: &Url, base_dir: &Path) -> Result<PathBuf> {
+    let host = url.host_str().unwrap_or("unknown");
+
+    let path_segments: Vec<_> = url.path().split('/').filter(|s| !s.is_empty()).collect();
+
+    let dir_path = base_dir.join(host);
+    std::fs::create_dir_all(&dir_path)
+        .with_context(|| format!("Failed to create directory: {}", dir_path.display()))?;
+
+    let mut full_path = dir_path;
+    if !path_segments.is_empty() {
+        for segment in &path_segments[..path_segments.len() - 1] {
+            full_path = full_path.join(segment);
+            std::fs::create_dir_all(&full_path)?;
+        }
+    }
+
+    let filename = if url.path().ends_with('/') || path_segments.is_empty() {
+        "index.md".to_string()
+    } else {
+        let last_segment = path_segments.last().unwrap();
+        if let Some(stem) = Path::new(last_segment).file_stem() {
+            format!("{}.md", stem.to_string_lossy())
+        } else {
+            format!("{}.md", last_segment)
+        }
+    };
+
+    Ok(full_path.join(filename))
+}
+
+/// Extract URLs from any text input
+pub fn extract_urls_from_text(text: &str, base_url: Option<&str>) -> Vec<String> {
+    // Pre-allocate with a reasonable capacity based on text length
+    let estimated_capacity = text.len() / 100; // More conservative estimate
+    let mut urls = Vec::with_capacity(estimated_capacity.min(1000));
+
+    // Add logic to identify local file paths
+    let file_regex = regex::Regex::new(r"^(file://)?(/[^/\s]+(?:/[^/\s]+)*\.html?)$").unwrap();
+
+    // Process text lines to extract URLs and local file paths
+    for line in text.lines() {
+        let line = line.trim();
+
+        // Check if line is a local file path
+        if file_regex.is_match(line) {
+            // Convert to file:// URL format if not already
+            let file_url = if line.starts_with("file://") {
+                line.to_string()
+            } else {
+                format!("file://{}", line)
+            };
+            urls.push(file_url);
+        } else if !line.is_empty() {
+            // Process as regular URL
+            process_text_chunk(line, base_url, &mut urls);
+        }
+    }
+
+    // Use unstable sort for better performance since order doesn't matter for deduplication
+    urls.sort_unstable();
+    urls.dedup();
+    urls
+}
+
+/// Process a chunk of text to extract URLs
+fn process_text_chunk(text: &str, base_url: Option<&str>, urls: &mut Vec<String>) {
+    if text.trim().starts_with('<') {
+        extract_urls_from_html_efficient(text, base_url, urls);
+    } else {
+        let finder = LinkFinder::new();
+        urls.extend(finder.links(text).filter_map(|link| {
+            if link.kind() == &LinkKind::Url {
+                try_parse_url(link.as_str(), base_url)
+            } else {
+                None
+            }
+        }));
+    }
+}
+
+/// More efficient HTML URL extraction
+fn extract_urls_from_html_efficient(html: &str, base_url: Option<&str>, urls: &mut Vec<String>) {
+    // Use a pre-configured link finder for better performance
+    let mut finder = LinkFinder::new();
+    finder.kinds(&[LinkKind::Url]);
+
+    // Process in parallel if HTML is large enough
+    if html.len() > 50_000 {
+        // Split HTML into chunks at word boundaries
+        let chunks: Vec<&str> = html.split_whitespace().collect();
+        let processed_urls: Vec<String> = chunks
+            .par_iter()
+            .flat_map(|&chunk| {
+                finder
+                    .links(chunk)
+                    .filter_map(|link| try_parse_url(link.as_str(), base_url))
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        urls.extend(processed_urls);
+    } else {
+        urls.extend(
+            finder
+                .links(html)
+                .filter_map(|link| try_parse_url(link.as_str(), base_url)),
+        );
+    }
+}
+
+/// Extract URLs from HTML content, including attributes and text content
+pub fn extract_urls_from_html(html: &str, base_url: Option<&str>) -> Vec<String> {
+    let mut urls = Vec::new();
+
+    // Parse HTML document
+    let dom = parse_document(rcdom::RcDom::default(), Default::default())
+        .from_utf8()
+        .read_from(&mut html.as_bytes())
+        .unwrap();
+
+    // Extract URLs from HTML structure using iterative approach
+    let mut stack = vec![dom.document.clone()];
+    while let Some(node) = stack.pop() {
+        // Process element nodes
+        if let rcdom::NodeData::Element { ref attrs, .. } = node.data {
+            let attrs = attrs.borrow();
+
+            // Define URL-containing attributes to check
+            let url_attrs = ["href", "src", "data-src", "data-href", "data-url"];
+
+            for attr in attrs.iter() {
+                let attr_name = attr.name.local.to_string();
+                let attr_value = attr.value.to_string();
+
+                if url_attrs.contains(&attr_name.as_str()) {
+                    if let Some(url) = try_parse_url(&attr_value, base_url) {
+                        urls.push(url);
+                    }
+                } else if attr_name == "srcset" {
+                    // Handle srcset attribute which may contain multiple URLs
+                    for src in attr_value.split(',') {
+                        let src = src.split_whitespace().next().unwrap_or("");
+                        if let Some(url) = try_parse_url(src, base_url) {
+                            urls.push(url);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Add child nodes to stack
+        for child in node.children.borrow().iter() {
+            stack.push(child.clone());
+        }
+    }
+
+    // Use LinkFinder as a fallback to catch any remaining URLs in text content
+    let finder = LinkFinder::new();
+    for link in finder.links(html) {
+        if link.kind() == &LinkKind::Url {
+            if let Some(url) = try_parse_url(link.as_str(), base_url) {
+                urls.push(url);
+            }
+        }
+    }
+
+    // Deduplicate and sort URLs
+    urls.sort();
+    urls.dedup();
+    urls
+}
+
+fn try_parse_url(url_str: &str, base_url: Option<&str>) -> Option<String> {
+    // Skip obvious non-URLs
+    if url_str.trim().is_empty()
+        || url_str.starts_with("data:")
+        || url_str.starts_with("javascript:")
+        || url_str.starts_with('#')
+        || url_str.contains('{')
+        || url_str.contains('}')
+        || url_str.contains('(')
+        || url_str.contains(')')
+        || url_str.contains('[')
+        || url_str.contains(']')
+        || url_str.contains('<')
+        || url_str.contains('>')
+        || url_str.contains('"')
+        || url_str.contains('\'')
+        || url_str.contains('`')
+        || url_str.contains('\n')
+        || url_str.contains('\r')
+        || url_str.contains('\t')
+        || url_str.contains(' ')
+    {
+        return None;
+    }
+
+    // Handle file:// URLs
+    if url_str.starts_with("file://") {
+        return Some(url_str.to_string());
+    }
+
+    // Check if it could be a local file path
+    if url_str.starts_with('/') && Path::new(url_str).exists() {
+        return Some(format!("file://{}", url_str));
+    }
+
+    // Try parsing as absolute URL first
+    if let Ok(url) = Url::parse(url_str) {
+        if url.scheme() == "http" || url.scheme() == "https" {
+            return Some(url.to_string());
+        }
+    }
+
+    // If we have a base URL and the input looks like a relative URL, try joining
+    if let Some(base) = base_url {
+        if let Ok(base_url) = Url::parse(base) {
+            if let Ok(url) = base_url.join(url_str) {
+                if url.scheme() == "http" || url.scheme() == "https" {
+                    return Some(url.to_string());
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Process a single URL with retries
+pub async fn process_url_with_retry(
+    url: &str,
+    output_path: Option<PathBuf>,
+    verbose: bool,
+    max_retries: u32,
+) -> Result<(), (String, anyhow::Error)> {
+    // Special handling for file:// URLs - no retry needed
+    if url.starts_with("file://") {
+        if verbose {
+            eprintln!("Processing local file: {}", url);
+        }
+        match crate::html::process_url_async(url, output_path, verbose).await {
+            Ok(_) => return Ok(()),
+            Err(e) => return Err((url.to_string(), e)),
+        }
+    }
+
+    let mut last_error = None;
+
+    for attempt in 0..=max_retries {
+        if attempt > 0 && verbose {
+            eprintln!(
+                "Retrying {} (attempt {}/{})",
+                url,
+                attempt + 1,
+                max_retries + 1
+            );
+        }
+
+        match crate::html::process_url_async(url, output_path.clone(), verbose).await {
+            Ok(_) => return Ok(()),
+            Err(e) => {
+                last_error = Some(e);
+                if attempt < max_retries {
+                    tokio::time::sleep(Duration::from_secs(1 << attempt)).await;
+                }
+            }
+        }
+    }
+
+    Err((url.to_string(), last_error.unwrap()))
+}
+
+/// Process a URL and return the Markdown content
+pub async fn process_url_with_content(
+    url: &str,
+    output_path: Option<PathBuf>,
+    verbose: bool,
+    max_retries: u32,
+) -> Result<Option<String>, (String, anyhow::Error)> {
+    let mut last_error = None;
+    let mut content = None;
+
+    for attempt in 0..=max_retries {
+        if attempt > 0 && verbose {
+            eprintln!(
+                "Retrying {} (attempt {}/{})",
+                url,
+                attempt + 1,
+                max_retries + 1
+            );
+        }
+
+        match crate::html::process_url_with_content(url, output_path.clone(), verbose).await {
+            Ok(md_content) => {
+                content = Some(md_content);
+                break;
+            }
+            Err(e) => {
+                last_error = Some(e);
+                if attempt < max_retries {
+                    tokio::time::sleep(Duration::from_secs(1 << attempt)).await;
+                }
+            }
+        }
+    }
+
+    if let Some(content) = content {
+        Ok(Some(content))
+    } else {
+        Err((url.to_string(), last_error.unwrap()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_extract_urls_from_text() {
+        let text = r#"
+            https://example.com
+            http://test.org
+            Invalid: ftp://example.com
+            https://example.com/path?query=value#fragment
+        "#;
+
+        let urls = extract_urls_from_text(text, None);
+        assert_eq!(urls.len(), 3);
+        assert!(urls.iter().any(|u| u.starts_with("https://example.com")));
+        assert!(urls.iter().any(|u| u.starts_with("http://test.org")));
+    }
+
+    #[tokio::test]
+    async fn test_create_output_path() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+
+        let url = Url::parse("https://example.com/path/page")?;
+        let path = create_output_path(&url, temp_dir.path())?;
+
+        assert!(path.starts_with(temp_dir.path()));
+        assert!(path.to_string_lossy().contains("example.com"));
+        assert!(path.to_string_lossy().ends_with(".md"));
+
+        Ok(())
+    }
+}
+</file>
+
+<file path=".gitignore">
+**/*.rs.bk
+*.pdb
+._*
+.apdisk
+.AppleDB
+.AppleDesktop
+.AppleDouble
+.com.apple.timemachine.donotpresent
+.DocumentRevisions-V100
+.DS_Store
+.fseventsd
+.idea/
+.LSOverride
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.vscode/
+debug/
+Icon
+Network Trash Folder
+target/
+Temporary Items
+work/
+/.specstory
+</file>
+
+<file path="build.rs">
+fn main() {
+    built::write_built_file().expect("Failed to acquire build-time information");
+    println!("cargo:rerun-if-changed=build.rs");
+}
+</file>
+
+<file path="Cargo.toml">
+[package]
+name = "twars-url2md"
+version = "1.4.2"
+edition = "2021"
+authors = ["Adam Twardoch <adam+github@twardoch.com>"]
+description = "A powerful CLI tool that fetches web pages and converts them to clean Markdown format using Monolith for content extraction and htmd for conversion"
+documentation = "https://github.com/twardoch/twars-url2md"
+homepage = "https://github.com/twardoch/twars-url2md"
+repository = "https://github.com/twardoch/twars-url2md"
+license = "MIT"
+readme = "README.md"
+keywords = ["markdown", "html", "converter", "web", "cli"]
+categories = ["command-line-utilities", "text-processing", "web-programming"]
+rust-version = "1.70.0"
+build = "build.rs"
+
+
+[package.metadata]
+msrv = "1.70.0"
+
+
+[badges.maintenance]
+status = "actively-developed"
+
+
+[dependencies]
+base64 = "0.22"
+cssparser = "0.34"
+encoding_rs = "0.8"
+linkify = "0.10"
+num_cpus = "1.16"
+sha2 = "0.10"
+rayon = "1.8"
+
+
+[dependencies.markup5ever]
+version = "0.16"
+features = []
+
+
+[dependencies.markup5ever_rcdom]
+version = "0.2"
+features = []
+
+
+[dependencies.anyhow]
+version = "^1.0"
+features = []
+
+
+[dependencies.clap]
+version = "4.5"
+features = ["derive"]
+
+
+[dependencies.futures]
+version = "0.3.30"
+features = []
+
+
+[dependencies.html5ever]
+version = "0.26"
+features = []
+
+
+[dependencies.htmd]
+version = "0.1"
+features = []
+
+
+[dependencies.indicatif]
+version = "0.17"
+features = []
+
+
+[dependencies.monolith]
+version = "^2.10"
+features = []
+
+
+[dependencies.openssl]
+version = "0.10"
+features = ["vendored"]
+
+
+[dependencies.regex]
+version = "1.10"
+default-features = false
+features = ["std", "perf-dfa", "unicode-perl"]
+
+
+[dependencies.reqwest]
+version = "0.12"
+features = ["default-tls", "gzip", "brotli", "deflate"]
+
+
+[dependencies.tokio]
+version = "1.36"
+features = ["full"]
+
+
+[dependencies.url]
+version = "2.5"
+features = []
+
+
+[dev-dependencies]
+tempfile = "3.10"
+mockito = "1.2"
+
+
+[build-dependencies.built]
+version = "0.7"
+features = ["chrono"]
+
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "unwind"
+strip = true
+opt-level = 3
+
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+
+[[bin]]
+name = "twars-url2md"
+path = "src/main.rs"
+</file>
+
+<file path="LICENSE">
+MIT License
+
+Copyright (c) 2025 Adam Twardoch
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+</file>
+
+<file path="README.md">
+# twars-url2md
+
+[![Crates.io](https://img.shields.io/crates/v/twars-url2md)](https://crates.io/crates/twars-url2md)
+![GitHub Release Date](https://img.shields.io/github/release-date/twardoch/twars-url2md)
+![GitHub commits since latest release](https://img.shields.io/github/commits-since/twardoch/twars-url2md/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+**`twars-url2md`** is a fast and robust command-line tool written in Rust that fetches web pages, cleans up their HTML content, and converts them into clean Markdown.
+
+You can drop a text that contains URLs onto the app, and it will find all the URLs and save Markdown versions of the pages in a logical folder structure. The output is not perfect, but the tool is fast and robust.
+
+## 1. Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Examples](#examples)
+- [Development](#development)
+- [License](#license)
+- [Author](#author)
+
+## 2. Features
+
+### 2.1. Powerful Web Content Conversion
+
+- Extracts clean web content using Monolith
+- Converts web pages to Markdown efficiently
+- Handles complex URL and encoding scenarios
+
+### 2.2. Smart URL Handling
+
+- Extracts URLs from various text formats
+- Resolves and validates URLs intelligently
+- Supports base URL and relative link processing
+- **NEW**: Processes local HTML files in addition to remote URLs
+
+### 2.3. Flexible Input & Output
+
+- Multiple input methods (file, stdin, CLI)
+- Organized Markdown file generation
+- Cross-platform compatibility
+- **NEW**: Option to pack all Markdown outputs into a single combined file
+
+### 2.4. Advanced Processing
+
+- Parallel URL processing
+- Robust error handling
+- Exponential backoff retry mechanism for network requests
+
+## 3. Installation
+
+### 3.1. Download Pre-compiled Binaries
+
+The easiest way to get started is to download the pre-compiled binary for your platform.
+
+1. Visit the [releases page](https://github.com/twardoch/twars-url2md/releases)
+2. Download the appropriate file for your system:
+   - **macOS**: `twars-url2md-macos-universal.tar.gz` (works on both Intel and Apple Silicon)
+   - **Windows**: `twars-url2md-windows-x86_64.exe.zip`
+   - **Linux**: `twars-url2md-linux-x86_64.tar.gz`
+3. Extract the archive:
+   - **macOS/Linux**: `tar -xzf twars-url2md-*.tar.gz`
+   - **Windows**: Extract the zip file using Explorer or any archive utility
+4. Make the binary executable (macOS/Linux only): `chmod +x twars-url2md`
+5. Move the binary to a location in your PATH:
+   - **macOS/Linux**: `sudo mv twars-url2md /usr/local/bin/` or `mv twars-url2md ~/.local/bin/`
+   - **Windows**: Move to a folder in your PATH or add the folder to your PATH
+
+### 3.2. Install from Crates.io
+
+If you have Rust installed (version 1.70.0 or later), you can install directly from crates.io:
+
+```bash
+cargo install twars-url2md
+```
+
+### 3.3. Build from Source
+
+For the latest version or to customize the build:
+
+```bash
+# Clone the repository
+git clone https://github.com/twardoch/twars-url2md.git
+cd twars-url2md
+
+# Build and install
+cargo build --release
+mv target/release/twars-url2md /usr/local/bin/  # or any location in your PATH
+```
+
+## 4. Usage
+
+### 4.1. Command Line Options
+
+```
+Usage: twars-url2md [OPTIONS]
+
+Options:
+  -i, --input <FILE>       Input file containing URLs or local file paths (one per line)
+  -o, --output <DIR>       Output directory for markdown files
+      --stdin              Read URLs from standard input
+      --base-url <URL>     Base URL for resolving relative links
+  -p, --pack <FILE>        Output file to pack all markdown files together
+  -v, --verbose            Enable verbose output
+  -h, --help               Print help
+  -V, --version            Print version
+```
+
+### 4.2. Input Options
+
+The tool accepts URLs and local file paths from:
+
+- A file specified with `--input`
+- Standard input with `--stdin`
+- **Note:** Either `--input` or `--stdin` must be specified
+
+### 4.3. Output Options
+
+- `--output <DIR>`: Create individual Markdown files in this directory
+- `--pack <FILE>`: Combine all Markdown files into a single output file
+- You can use both options together
+
+### 4.4. Processing Local Files
+
+You can now include local HTML files in your input:
+
+- Absolute paths: `/path/to/file.html`
+- File URLs: `file:///path/to/file.html`
+- Mix of local files and remote URLs in the same input
+
+## 5. Examples
+
+### 5.1. Basic Usage
+
+```bash
+# Process a single URL and print to stdout
+echo "https://example.com" | twars-url2md --stdin
+
+# Process URLs from a file with specific output directory
+twars-url2md --input urls.txt --output ./markdown_output
+
+# Process piped URLs with base URL for relative links
+cat urls.txt | twars-url2md --stdin --base-url "https://example.com" --output ./output
+
+# Show verbose output
+twars-url2md --input urls.txt --output ./output --verbose
+```
+
+### 5.2. Using the Pack Option
+
+```bash
+# Process URLs and create a combined Markdown file
+twars-url2md --input urls.txt --pack combined.md
+
+# Both individual files and a combined file
+twars-url2md --input urls.txt --output ./output --pack combined.md
+```
+
+### 5.3. Processing Local Files
+
+```bash
+# Create a test HTML file
+echo "<html><body><h1>Test</h1><p>Content</p></body></html>" > test.html
+
+# Process a local HTML file
+echo "$PWD/test.html" > local_paths.txt
+twars-url2md --input local_paths.txt --output ./output
+
+# Mix local and remote content
+cat > mixed.txt << EOF
+https://example.com
+file://$PWD/test.html
+EOF
+twars-url2md --input mixed.txt --pack combined.md
+```
+
+### 5.4. Batch Processing
+
+```bash
+# Extract and process links from a webpage
+curl "https://en.wikipedia.org/wiki/Rust_(programming_language)" | twars-url2md --stdin --output rust_wiki/
+
+# Process multiple files
+find ./html_files -name "*.html" > files_to_process.txt
+twars-url2md --input files_to_process.txt --output ./markdown_output --pack all_content.md
+```
+
+## 6. Output Organization
+
+The tool organizes output into a directory structure based on the URLs:
+
+```
+output/
+├── example.com/
+│   ├── index.md       # from https://example.com/
+│   └── articles/
+│       └── page.md    # from https://example.com/articles/page
+└── another-site.com/
+    └── post/
+        └── article.md # from https://another-site.com/post/article
+```
+
+For local files, the directory structure mirrors the file path.
+
+## 7. Development
+
+### 7.1. Running Tests
+
+```bash
+# Run all tests
+cargo test
+
+# Run with specific features
+cargo test --all-features
+
+# Run specific test
+cargo test test_name
+```
+
+### 7.2. Code Quality Tools
+
+- **Formatting**: `cargo fmt`
+- **Linting**: `cargo clippy --all-targets --all-features`
+
+### 7.3. Publishing
+
+To publish a new release of twars-url2md:
+
+#### 7.3.1. Prepare for Release
+
+```bash
+# Update version in Cargo.toml (e.g. from 1.3.6 to 1.3.7)
+# Ensure everything works
+cargo test
+cargo clippy --all-targets --all-features
+cargo fmt --check
+```
+
+#### 7.3.2. Build Locally
+
+```bash
+# Build in release mode
+cargo build --release
+
+# Test the binary
+./target/release/twars-url2md --help
+```
+
+#### 7.3.3. Publish to Crates.io
+
+```bash
+# Login to crates.io (if not already logged in)
+cargo login
+
+# Verify the package
+cargo package
+
+# Publish
+cargo publish
+```
+
+#### 7.3.4. Create GitHub Release
+
+```bash
+# Create and push a tag matching your version
+git tag -a v1.3.7 -m "Release v1.3.7"
+git push origin v1.3.7
+```
+
+The configured GitHub Actions workflow (`.github/workflows/ci.yml`) will automatically:
+- Run tests on the tag
+- Create a GitHub Release
+- Build binaries for macOS, Windows, and Linux
+- Upload the binaries to the release
+- Publish to crates.io
+
+#### 7.3.5. Manual Release (Alternative)
+
+If GitHub Actions fails, you can create the release manually:
+
+1. Go to GitHub repository → Releases → Create a new release
+2. Select your tag
+3. Build platform-specific binaries:
+
+```bash
+# macOS universal binary
+cargo build --release --target x86_64-apple-darwin
+cargo build --release --target aarch64-apple-darwin
+lipo "target/x86_64-apple-darwin/release/twars-url2md" "target/aarch64-apple-darwin/release/twars-url2md" -create -output "target/twars-url2md"
+tar czf twars-url2md-macos-universal.tar.gz -C target twars-url2md
+
+# Linux
+cargo build --release --target x86_64-unknown-linux-gnu
+tar czf twars-url2md-linux-x86_64.tar.gz -C target/x86_64-unknown-linux-gnu/release twars-url2md
+
+# Windows
+cargo build --release --target x86_64-pc-windows-msvc
+cd target/x86_64-pc-windows-msvc/release
+7z a ../../../twars-url2md-windows-x86_64.zip twars-url2md.exe
+```
+
+4. Upload these files to your GitHub release
+
+#### 7.3.6. Verify the Release
+
+- Check that the release appears on GitHub
+- Verify that binary files are attached to the release
+- Confirm the new version appears on crates.io
+- Try installing the new version: `cargo install twars-url2md`
+
+## 8. License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+## 9. Author
+
+Adam Twardoch ([@twardoch](https://github.com/twardoch))
+
+---
+
+For bug reports, feature requests, or general questions, please open an issue on the [GitHub repository](https://github.com/twardoch/twars-url2md/issues).
+</file>
+
+</files>

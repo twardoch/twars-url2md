@@ -3,7 +3,8 @@ use html5ever::parse_document;
 use html5ever::tendril::TendrilSink;
 use linkify::{LinkFinder, LinkKind};
 use markup5ever_rcdom as rcdom;
-use rayon::prelude::*;
+// anyhow::Context is already imported via `use anyhow::{Context, Result};`
+// use rayon::prelude::*; // No longer used after removing extract_urls_from_html_efficient
 use regex;
 use std::path::{Path, PathBuf};
 use tokio::time::Duration;
@@ -48,7 +49,9 @@ pub fn extract_urls_from_text(text: &str, base_url: Option<&str>) -> Vec<String>
     let mut urls = Vec::with_capacity(estimated_capacity.min(1000));
 
     // Add logic to identify local file paths
-    let file_regex = regex::Regex::new(r"^(file://)?(/[^/\s]+(?:/[^/\s]+)*\.html?)$").unwrap();
+    // This regex is static and assumed to be valid. Panicking here is acceptable if it's malformed.
+    let file_regex = regex::Regex::new(r"^(file://)?(/[^/\s]+(?:/[^/\s]+)*\.html?)$")
+        .expect("Invalid static regex for file paths");
 
     // Process text lines to extract URLs and local file paths
     for line in text.lines() {
@@ -77,11 +80,34 @@ pub fn extract_urls_from_text(text: &str, base_url: Option<&str>) -> Vec<String>
 
 /// Process a chunk of text to extract URLs
 fn process_text_chunk(text: &str, base_url: Option<&str>, urls: &mut Vec<String>) {
-    if text.trim().starts_with('<') {
-        extract_urls_from_html_efficient(text, base_url, urls);
+    let trimmed_text = text.trim();
+    if trimmed_text.starts_with('<') {
+        // Attempt to parse as HTML if it looks like an HTML tag/document fragment
+        match extract_urls_from_html(trimmed_text, base_url) {
+            Ok(extracted) => {
+                urls.extend(extracted);
+            }
+            Err(e) => {
+                // Log the error and fall back to simple LinkFinder for this chunk
+                tracing::debug!(
+                    "Failed to parse text chunk as HTML ({}): '{}...'. Falling back to LinkFinder.",
+                    e,
+                    trimmed_text.chars().take(50).collect::<String>()
+                );
+                let finder = LinkFinder::new();
+                urls.extend(finder.links(trimmed_text).filter_map(|link| {
+                    if link.kind() == &LinkKind::Url {
+                        try_parse_url(link.as_str(), base_url)
+                    } else {
+                        None
+                    }
+                }));
+            }
+        }
     } else {
+        // Standard LinkFinder for non-HTML-like text
         let finder = LinkFinder::new();
-        urls.extend(finder.links(text).filter_map(|link| {
+        urls.extend(finder.links(trimmed_text).filter_map(|link| {
             if link.kind() == &LinkKind::Url {
                 try_parse_url(link.as_str(), base_url)
             } else {
@@ -91,44 +117,19 @@ fn process_text_chunk(text: &str, base_url: Option<&str>, urls: &mut Vec<String>
     }
 }
 
-/// More efficient HTML URL extraction
-fn extract_urls_from_html_efficient(html: &str, base_url: Option<&str>, urls: &mut Vec<String>) {
-    // Use a pre-configured link finder for better performance
-    let mut finder = LinkFinder::new();
-    finder.kinds(&[LinkKind::Url]);
-
-    // Process in parallel if HTML is large enough
-    if html.len() > 50_000 {
-        // Split HTML into chunks at word boundaries
-        let chunks: Vec<&str> = html.split_whitespace().collect();
-        let processed_urls: Vec<String> = chunks
-            .par_iter()
-            .flat_map(|&chunk| {
-                finder
-                    .links(chunk)
-                    .filter_map(|link| try_parse_url(link.as_str(), base_url))
-                    .collect::<Vec<_>>()
-            })
-            .collect();
-        urls.extend(processed_urls);
-    } else {
-        urls.extend(
-            finder
-                .links(html)
-                .filter_map(|link| try_parse_url(link.as_str(), base_url)),
-        );
-    }
-}
+// Removed extract_urls_from_html_efficient.
+// Its logic will be integrated into process_text_chunk's fallback,
+// and extract_urls_from_html is the primary method for HTML content.
 
 /// Extract URLs from HTML content, including attributes and text content
-pub fn extract_urls_from_html(html: &str, base_url: Option<&str>) -> Vec<String> {
+pub fn extract_urls_from_html(html: &str, base_url: Option<&str>) -> Result<Vec<String>> {
     let mut urls = Vec::new();
 
     // Parse HTML document
     let dom = parse_document(rcdom::RcDom::default(), Default::default())
         .from_utf8()
         .read_from(&mut html.as_bytes())
-        .unwrap();
+        .map_err(|e| anyhow::anyhow!("Failed to parse HTML for URL extraction: {}", e))?;
 
     // Extract URLs from HTML structure using iterative approach
     let mut stack = vec![dom.document.clone()];
@@ -179,7 +180,7 @@ pub fn extract_urls_from_html(html: &str, base_url: Option<&str>) -> Vec<String>
     // Deduplicate and sort URLs
     urls.sort();
     urls.dedup();
-    urls
+    Ok(urls)
 }
 
 fn try_parse_url(url_str: &str, base_url: Option<&str>) -> Option<String> {
@@ -238,90 +239,8 @@ fn try_parse_url(url_str: &str, base_url: Option<&str>) -> Option<String> {
     None
 }
 
-/// Process a single URL with retries
-pub async fn process_url_with_retry(
-    url: &str,
-    output_path: Option<PathBuf>,
-    verbose: bool,
-    max_retries: u32,
-) -> Result<(), (String, anyhow::Error)> {
-    // Special handling for file:// URLs - no retry needed
-    if url.starts_with("file://") {
-        if verbose {
-            eprintln!("Processing local file: {}", url);
-        }
-        match crate::html::process_url_async(url, output_path, verbose).await {
-            Ok(_) => return Ok(()),
-            Err(e) => return Err((url.to_string(), e)),
-        }
-    }
-
-    let mut last_error = None;
-
-    for attempt in 0..=max_retries {
-        if attempt > 0 && verbose {
-            eprintln!(
-                "Retrying {} (attempt {}/{})",
-                url,
-                attempt + 1,
-                max_retries + 1
-            );
-        }
-
-        match crate::html::process_url_async(url, output_path.clone(), verbose).await {
-            Ok(_) => return Ok(()),
-            Err(e) => {
-                last_error = Some(e);
-                if attempt < max_retries {
-                    tokio::time::sleep(Duration::from_secs(1 << attempt)).await;
-                }
-            }
-        }
-    }
-
-    Err((url.to_string(), last_error.unwrap()))
-}
-
-/// Process a URL and return the Markdown content
-pub async fn process_url_with_content(
-    url: &str,
-    output_path: Option<PathBuf>,
-    verbose: bool,
-    max_retries: u32,
-) -> Result<Option<String>, (String, anyhow::Error)> {
-    let mut last_error = None;
-    let mut content = None;
-
-    for attempt in 0..=max_retries {
-        if attempt > 0 && verbose {
-            eprintln!(
-                "Retrying {} (attempt {}/{})",
-                url,
-                attempt + 1,
-                max_retries + 1
-            );
-        }
-
-        match crate::html::process_url_with_content(url, output_path.clone(), verbose).await {
-            Ok(md_content) => {
-                content = Some(md_content);
-                break;
-            }
-            Err(e) => {
-                last_error = Some(e);
-                if attempt < max_retries {
-                    tokio::time::sleep(Duration::from_secs(1 << attempt)).await;
-                }
-            }
-        }
-    }
-
-    if let Some(content) = content {
-        Ok(Some(content))
-    } else {
-        Err((url.to_string(), last_error.unwrap()))
-    }
-}
+// process_url_with_retry and process_url_with_content (with retry logic)
+// have been moved to src/html.rs and made pub(crate) there.
 
 #[cfg(test)]
 mod tests {

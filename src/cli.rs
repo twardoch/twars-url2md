@@ -65,17 +65,21 @@ impl Cli {
                     if err.kind() == clap::error::ErrorKind::DisplayHelp
                         || err.kind() == clap::error::ErrorKind::DisplayVersion
                     {
-                        println!("{}", err);
+                        // For help and version, Clap prints the message itself.
+                        // We just need to exit cleanly.
                         std::process::exit(0);
                     }
+                    // For other errors, print a concise message.
+                    // Clap's default error messages can be verbose.
                     eprintln!(
                         "Error: {}",
                         err.render()
                             .to_string()
                             .lines()
                             .next()
-                            .unwrap_or("Invalid usage")
+                            .unwrap_or("Invalid command line arguments.")
                     );
+                    eprintln!("Run with --help for usage information.");
                     std::process::exit(1);
                 }
             }
@@ -86,23 +90,29 @@ impl Cli {
 
     /// Collect URLs from all input sources
     pub fn collect_urls(&self) -> io::Result<Vec<String>> {
+        tracing::debug!("Collecting URLs from input sources...");
         // Get content from stdin or file
         let content = if self.stdin {
+            tracing::info!("Reading URLs from stdin.");
             let mut buffer = String::new();
             io::stdin().read_to_string(&mut buffer)?;
             buffer
         } else if let Some(input_path) = &self.input {
+            tracing::info!("Reading URLs from file: {}", input_path.display());
             fs::read_to_string(input_path)?
         } else {
-            // Replace unreachable!() with a proper error
+            // This case should be caught by parse_args validation
+            tracing::error!("Neither stdin nor input file specified during URL collection.");
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                "Neither stdin nor input file specified",
+                "Internal error: Neither stdin nor input file specified, but validation passed.",
             ));
         };
 
         // Extract URLs from content
-        Ok(extract_urls_from_text(&content, self.base_url.as_deref()))
+        let urls = extract_urls_from_text(&content, self.base_url.as_deref());
+        tracing::debug!("Extracted {} URLs from content.", urls.len());
+        Ok(urls)
     }
 
     /// Create configuration from CLI arguments
