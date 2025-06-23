@@ -6,13 +6,13 @@ use std::sync::Arc;
 use std::thread;
 
 pub mod cli;
-mod error;
+// mod error; // Removed
 mod html;
 mod markdown;
 pub mod url;
 
 pub use cli::Cli;
-pub use error::Error;
+// pub use error::Error; // Removed
 
 include!(concat!(env!("OUT_DIR"), "/built.rs"));
 
@@ -52,14 +52,12 @@ pub async fn process_urls(
 
     let pb = if urls.len() > 1 {
         let pb = ProgressBar::new(urls.len() as u64);
-        pb.set_style(
-            ProgressStyle::default_bar()
-                .template(
-                    "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
-                )
-                .unwrap()
-                .progress_chars("#>-"),
-        );
+        let style = ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})")
+            .map_err(|e| tracing::warn!("Failed to create progress bar template: {}. Using default style.", e))
+            .unwrap_or_else(|_| ProgressStyle::default_bar()) // Fallback to default style
+            .progress_chars("#>-");
+        pb.set_style(style);
         Some(pb)
     } else {
         None
@@ -70,78 +68,100 @@ pub async fn process_urls(
     let concurrency_limit = thread::available_parallelism()
         .map(|n| n.get() * 2) // 2 tasks per CPU core
         .unwrap_or(10);
+    tracing::debug!("Concurrency limit set to: {}", concurrency_limit);
 
     // If pack_file is specified, collect the markdown content
     let should_pack = config.pack_file.is_some();
     let pack_path = config.pack_file.clone();
     let packed_content = if should_pack {
+        tracing::debug!("Packing mode enabled. Output will be: {:?}", pack_path);
         Arc::new(tokio::sync::Mutex::new(Vec::with_capacity(urls.len())))
     } else {
-        Arc::new(tokio::sync::Mutex::new(Vec::new()))
+        Arc::new(tokio::sync::Mutex::new(Vec::new())) // Empty vec if not packing
     };
 
-    // Clone the URLs vector before moving it into the stream
-    let urls_for_ordering = urls.clone();
+    // Clone the URLs vector before moving it into the stream for ordering packed content later
+    let urls_for_ordering = if should_pack { urls.clone() } else { Vec::new() };
 
-    let results = stream::iter(urls.into_iter().map(|url| {
-        let pb = Arc::clone(&pb);
-        let config = config.clone();
-        let packed_content = Arc::clone(&packed_content);
+    let results = stream::iter(urls.into_iter().map(|url_str| {
+        let pb_clone = Arc::clone(&pb);
+        let config_clone = config.clone();
+        let packed_content_clone = Arc::clone(&packed_content);
         async move {
-            if config.verbose {
-                eprintln!("Processing: {}", url);
-            }
-            match Url::parse(&url) {
+            tracing::info!("Processing URL: {}", url_str);
+            match Url::parse(&url_str) {
                 Ok(url_parsed) => {
-                    let out_path = if config.single_file
-                        && config.has_output
-                        && !config.output_base.is_dir()
+                    let out_path = if config_clone.single_file
+                        && config_clone.has_output
+                        && !config_clone.output_base.is_dir()
                     {
-                        Some(config.output_base)
+                        Some(config_clone.output_base)
                     } else {
-                        url::create_output_path(&url_parsed, &config.output_base).ok()
+                        match url::create_output_path(&url_parsed, &config_clone.output_base) {
+                            Ok(p) => Some(p),
+                            Err(e) => {
+                                tracing::error!("Failed to create output path for {}: {}", url_str, e);
+                                None
+                            }
+                        }
                     };
+                    tracing::debug!("Output path for {}: {:?}", url_str, out_path);
 
                     let result = if should_pack {
                         // Process URL and collect content for packing
-                        match url::process_url_with_content(
-                            &url,
+                        // Calls html::process_url_content_with_retry now
+                        match html::process_url_content_with_retry(
+                            &url_str,
                             out_path,
-                            config.verbose,
-                            config.max_retries,
+                            config_clone.max_retries,
                         )
                         .await
                         {
-                            Ok(content) => {
-                                if let Some(md_content) = content {
-                                    let mut content_vec = packed_content.lock().await;
-                                    content_vec.push((url.clone(), md_content));
+                            Ok(content_opt) => {
+                                if let Some(md_content) = content_opt {
+                                    // md_content will be empty if it's a real empty page,
+                                    // content_opt will be None if it was a non-HTML skip.
+                                    // The packing logic should only add non-empty actual content.
+                                    // The current check `if !md_content.is_empty()` is correct.
+                                    if !md_content.is_empty() {
+                                        let mut content_vec = packed_content_clone.lock().await;
+                                        content_vec.push((url_str.clone(), md_content));
+                                        tracing::debug!("Collected content for packing for URL: {}", url_str);
+                                    } else {
+                                        tracing::debug!("Content for URL {} is empty, not packing. (Could be actual empty page or handled skip)", url_str);
+                                    }
+                                } else {
+                                     tracing::debug!("URL {} was skipped (e.g. non-HTML), no content to pack.", url_str);
                                 }
                                 Ok(())
                             }
-                            Err(e) => Err(e),
+                            Err(e) => {
+                                tracing::warn!("Failed to process and get content for {}: {}", url_str, e.1);
+                                Err(e)
+                            }
                         }
                     } else {
-                        // Process URL normally
-                        url::process_url_with_retry(
-                            &url,
+                        // Process URL normally (writes to file or stdout via process_url_async)
+                        // Calls html::process_url_with_retry now
+                        html::process_url_with_retry(
+                            &url_str,
                             out_path,
-                            config.verbose,
-                            config.max_retries,
+                            config_clone.max_retries,
                         )
                         .await
                     };
 
-                    if let Some(pb) = &*pb {
-                        pb.inc(1);
+                    if let Some(pb_instance) = &*pb_clone {
+                        pb_instance.inc(1);
                     }
                     result
                 }
                 Err(e) => {
-                    if let Some(pb) = &*pb {
-                        pb.inc(1);
+                    tracing::error!("Failed to parse URL {}: {}", url_str, e);
+                    if let Some(pb_instance) = &*pb_clone {
+                        pb_instance.inc(1);
                     }
-                    Err((url, e.into()))
+                    Err((url_str, e.into()))
                 }
             }
         }
@@ -150,30 +170,34 @@ pub async fn process_urls(
     .collect::<Vec<_>>()
     .await;
 
-    if let Some(pb) = &*pb {
-        pb.finish_with_message("Done!");
+    if let Some(pb_instance) = &*pb {
+        pb_instance.finish_with_message("Processing complete!");
+        // pb_instance.finish_and_clear(); // Optionally clear the progress bar
     }
 
     // Write the packed content to the specified file
-    if let Some(pack_path) = pack_path {
-        if config.verbose {
-            eprintln!("Writing packed content to {}", pack_path.display());
-        }
+    if let Some(path) = pack_path {
+        tracing::info!("Writing packed content to {}", path.display());
 
-        if let Some(parent) = pack_path.parent() {
-            if let Err(e) = tokio::fs::create_dir_all(parent).await {
-                eprintln!(
-                    "Warning: Failed to create directory {}: {}",
-                    parent.display(),
-                    e
-                );
+        if let Some(parent) = path.parent() {
+            if !parent.exists() {
+                tracing::debug!("Creating parent directory for packed file: {}", parent.display());
+                if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                    tracing::error!(
+                        "Failed to create directory {} for packed file: {}",
+                        parent.display(),
+                        e
+                    );
+                    // Continue to attempt writing, but log the error.
+                }
             }
         }
 
-        let mut packed_file = match tokio::fs::File::create(&pack_path).await {
+        let mut packed_file = match tokio::fs::File::create(&path).await {
             Ok(file) => file,
             Err(e) => {
-                eprintln!("Error creating packed file: {}", e);
+                tracing::error!("Fatal: Error creating packed file {}: {}", path.display(), e);
+                // Collect all errors from processing and return them
                 return Ok(results.into_iter().filter_map(|r| r.err()).collect());
             }
         };
@@ -182,36 +206,36 @@ pub async fn process_urls(
         let mut content_to_write = packed_content.lock().await;
 
         // Reorder packed_content to match the original URL order
-        let mut url_to_index = std::collections::HashMap::new();
-        for (i, url) in urls_for_ordering.iter().enumerate() {
-            url_to_index.insert(url.clone(), i);
+        if !urls_for_ordering.is_empty() {
+            let mut url_to_index = std::collections::HashMap::new();
+            for (i, u) in urls_for_ordering.iter().enumerate() {
+                url_to_index.insert(u.clone(), i);
+            }
+
+            content_to_write.sort_by(|a, b| {
+                let a_idx = url_to_index.get(&a.0).unwrap_or(&usize::MAX);
+                let b_idx = url_to_index.get(&b.0).unwrap_or(&usize::MAX);
+                a_idx.cmp(b_idx)
+            });
+            tracing::debug!("Packed content reordered according to input URL order.");
         }
 
-        content_to_write.sort_by(|a, b| {
-            let a_idx = url_to_index.get(&a.0).unwrap_or(&usize::MAX);
-            let b_idx = url_to_index.get(&b.0).unwrap_or(&usize::MAX);
-            a_idx.cmp(b_idx)
-        });
 
-        for (url, content) in content_to_write.iter() {
-            if let Err(e) = packed_file
-                .write_all(format!("# {}\n\n{}\n\n---\n\n", url, content).as_bytes())
-                .await
-            {
-                eprintln!("Error writing to packed file: {}", e);
+        for (url_str, content) in content_to_write.iter() {
+            let formatted_entry = format!("# {}\n\n{}\n\n---\n\n", url_str, content);
+            if let Err(e) = packed_file.write_all(formatted_entry.as_bytes()).await {
+                tracing::error!("Error writing entry for {} to packed file {}: {}", url_str, path.display(), e);
             }
         }
+        tracing::info!("Successfully wrote {} entries to packed file {}", content_to_write.len(), path.display());
     }
 
-    // Process results as before
+    // Collect and return errors
     let mut errors = Vec::new();
     for r in results {
-        match r {
-            Ok(()) => {}
-            Err(e) => {
-                eprintln!("Warning: Failed to process {}: {}", e.0, e.1);
-                errors.push(e);
-            }
+        if let Err(e) = r {
+            // Error already logged at source, just collect for summary
+            errors.push(e);
         }
     }
 

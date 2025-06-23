@@ -3,26 +3,17 @@ use monolith::cache::Cache;
 use monolith::core::Options;
 use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
 use reqwest::Client;
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
 use crate::markdown;
 
-/// Log an error message if verbose mode is enabled
-fn log_error(msg: &str, verbose: bool) {
-    if verbose {
-        eprintln!("Warning: {}", msg);
-    }
-}
-
-/// Process a URL by downloading its content and converting to Markdown
-pub async fn process_url_async(
-    url: &str,
-    output_path: Option<PathBuf>,
-    verbose: bool,
-) -> Result<()> {
+/// Internal helper to fetch HTML and convert to Markdown for a given URL.
+/// Returns Ok(None) if URL is skipped (e.g., non-HTML).
+/// Returns Ok(Some(String)) with Markdown content if successful.
+/// Returns Err if fetching or conversion fails.
+async fn get_markdown_for_url(url: &str) -> Result<Option<String>> {
     // Skip non-HTML URLs
     if url.ends_with(".jpg")
         || url.ends_with(".jpeg")
@@ -34,71 +25,83 @@ pub async fn process_url_async(
         || url.ends_with(".mp4")
         || url.ends_with(".webm")
     {
-        log_error(&format!("Skipping non-HTML URL: {}", url), verbose);
-        return Ok(());
+        tracing::debug!("Skipping non-HTML URL (get_markdown_for_url): {}", url);
+        return Ok(None);
     }
 
+    tracing::debug!("Creating HTTP client for URL (get_markdown_for_url): {}", url);
     let client = create_http_client()?;
 
-    // Pre-allocate a reasonably sized cache with specific types
-    static CACHE_CAPACITY: usize = 1024;
-    let _cache: HashMap<String, Vec<u8>> = HashMap::with_capacity(CACHE_CAPACITY);
-
+    tracing::debug!("Fetching HTML for URL (get_markdown_for_url): {}", url);
     let html = match fetch_html(&client, url).await {
-        Ok(html) => html,
+        Ok(html_content) => html_content,
         Err(e) => {
-            log_error(
-                &format!(
-                    "Error fetching HTML from {}: {}. Using fallback processing.",
-                    url, e
-                ),
-                verbose,
+            tracing::warn!(
+                "Error fetching HTML from {} (get_markdown_for_url): {}. Using fallback processing.",
+                url,
+                e
             );
             // Try to get raw HTML as fallback
             client.get(url).send().await?.text().await?
         }
     };
 
-    let markdown = match markdown::convert_html_to_markdown(&html) {
-        Ok(md) => md,
+    tracing::debug!("Converting HTML to Markdown for URL (get_markdown_for_url): {}", url);
+    match markdown::convert_html_to_markdown(&html) {
+        Ok(md) => Ok(Some(md)),
         Err(e) => {
-            log_error(
-                &format!(
-                    "Error converting to Markdown: {}. Using simplified conversion.",
-                    e
-                ),
-                verbose,
+            tracing::warn!(
+                "Error converting to Markdown for URL {} (get_markdown_for_url): {}. Using simplified conversion.",
+                url,
+                e
             );
             // Fallback to simpler conversion if htmd fails
-            html.replace("<br>", "\n")
+            let simplified_md = html.replace("<br>", "\n")
                 .replace("<br/>", "\n")
                 .replace("<br />", "\n")
                 .replace("<p>", "\n\n")
-                .replace("</p>", "")
+                .replace("</p>", "");
+            Ok(Some(simplified_md))
         }
-    };
-
-    match output_path {
-        Some(path) => {
-            // Use async file operations for better I/O performance
-            if let Some(parent) = path.parent() {
-                if let Err(e) = tokio::fs::create_dir_all(parent).await {
-                    log_error(
-                        &format!("Failed to create directory {}: {}", parent.display(), e),
-                        verbose,
-                    );
-                }
-            }
-            tokio::fs::write(&path, markdown)
-                .await
-                .with_context(|| format!("Failed to write to file: {}", path.display()))?;
-            if verbose {
-                eprintln!("Created: {}", path.display());
-            }
-        }
-        None => println!("{}", markdown),
     }
+}
 
+/// Process a URL by downloading its content and converting to Markdown
+pub async fn process_url_async(
+    url: &str,
+    output_path: Option<PathBuf>,
+    // verbose: bool, // verbose is now handled by tracing
+) -> Result<()> {
+    match get_markdown_for_url(url).await? {
+        Some(markdown_content) => {
+            if let Some(path) = output_path {
+                tracing::debug!("Writing Markdown to file (process_url_async): {}", path.display());
+                if let Some(parent) = path.parent() {
+                    if !parent.exists() {
+                        tracing::debug!("Creating parent directory (process_url_async): {}", parent.display());
+                        if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                            tracing::warn!(
+                                "Failed to create directory {} (process_url_async): {}",
+                                parent.display(),
+                                e
+                            );
+                        }
+                    }
+                }
+                tokio::fs::write(&path, &markdown_content) // Pass by reference
+                    .await
+                    .with_context(|| format!("Failed to write to file (process_url_async): {}", path.display()))?;
+                tracing::info!("Created (process_url_async): {}", path.display());
+            } else {
+                tracing::debug!("Printing Markdown to stdout for URL (process_url_async): {}", url);
+                println!("{}", markdown_content);
+            }
+        }
+        None => {
+            // URL was skipped (e.g. non-HTML), already logged by get_markdown_for_url
+            tracing::debug!("URL skipped, no action needed (process_url_async): {}", url);
+        }
+    }
     Ok(())
 }
 
@@ -107,82 +110,37 @@ pub async fn process_url_async(
 pub async fn process_url_with_content(
     url: &str,
     output_path: Option<PathBuf>,
-    verbose: bool,
+    // verbose: bool, // verbose is now handled by tracing
 ) -> Result<String> {
-    // Skip non-HTML URLs
-    if url.ends_with(".jpg")
-        || url.ends_with(".jpeg")
-        || url.ends_with(".png")
-        || url.ends_with(".gif")
-        || url.ends_with(".svg")
-        || url.ends_with(".webp")
-        || url.ends_with(".pdf")
-        || url.ends_with(".mp4")
-        || url.ends_with(".webm")
-    {
-        log_error(&format!("Skipping non-HTML URL: {}", url), verbose);
-        return Ok(String::new());
-    }
-
-    let client = create_http_client()?;
-
-    // Pre-allocate a reasonably sized cache with specific types
-    static CACHE_CAPACITY: usize = 1024;
-    let _cache: HashMap<String, Vec<u8>> = HashMap::with_capacity(CACHE_CAPACITY);
-
-    let html = match fetch_html(&client, url).await {
-        Ok(html) => html,
-        Err(e) => {
-            log_error(
-                &format!(
-                    "Error fetching HTML from {}: {}. Using fallback processing.",
-                    url, e
-                ),
-                verbose,
-            );
-            // Try to get raw HTML as fallback
-            client.get(url).send().await?.text().await?
-        }
-    };
-
-    let markdown = match markdown::convert_html_to_markdown(&html) {
-        Ok(md) => md,
-        Err(e) => {
-            log_error(
-                &format!(
-                    "Error converting to Markdown: {}. Using simplified conversion.",
-                    e
-                ),
-                verbose,
-            );
-            // Fallback to simpler conversion if htmd fails
-            html.replace("<br>", "\n")
-                .replace("<br/>", "\n")
-                .replace("<br />", "\n")
-                .replace("<p>", "\n\n")
-                .replace("</p>", "")
-        }
-    };
-
-    // Also write to file if output_path is specified
-    if let Some(path) = output_path {
-        if let Some(parent) = path.parent() {
-            if let Err(e) = tokio::fs::create_dir_all(parent).await {
-                log_error(
-                    &format!("Failed to create directory {}: {}", parent.display(), e),
-                    verbose,
-                );
+    match get_markdown_for_url(url).await? {
+        Some(markdown_content) => {
+            if let Some(path) = output_path {
+                tracing::debug!("Writing Markdown to file (process_url_with_content): {}", path.display());
+                if let Some(parent) = path.parent() {
+                    if !parent.exists() {
+                        tracing::debug!("Creating parent directory (process_url_with_content): {}", parent.display());
+                        if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                            tracing::warn!(
+                                "Failed to create directory {} (process_url_with_content): {}",
+                                parent.display(),
+                                e
+                            );
+                        }
+                    }
+                }
+                tokio::fs::write(&path, &markdown_content) // Pass by reference
+                    .await
+                    .with_context(|| format!("Failed to write to file (process_url_with_content): {}", path.display()))?;
+                tracing::info!("Created (process_url_with_content): {}", path.display());
             }
+            Ok(markdown_content)
         }
-        tokio::fs::write(&path, &markdown)
-            .await
-            .with_context(|| format!("Failed to write to file: {}", path.display()))?;
-        if verbose {
-            eprintln!("Created: {}", path.display());
+        None => {
+            // URL was skipped
+            tracing::debug!("URL skipped, returning empty string (process_url_with_content): {}", url);
+            Ok(String::new())
         }
     }
-
-    Ok(markdown)
 }
 
 /// Create an HTTP client with appropriate headers and optimized settings
@@ -267,67 +225,192 @@ async fn fetch_html(client: &Client, url: &str) -> Result<String> {
 
     let document_url =
         reqwest::Url::parse(url).with_context(|| format!("Failed to parse URL: {}", url))?;
-    let html_bytes = Arc::new(html_bytes.to_vec());
-    let charset = charset.clone();
+    let html_bytes_arc = Arc::new(html_bytes.to_vec());
 
-    // Try to process with Monolith, but fall back to simple HTML if anything fails
-    let processed_html = tokio::task::spawn_blocking({
-        let html_bytes = Arc::clone(&html_bytes);
-        let simple_html = simple_html.clone();
+    // Try to process with Monolith in a blocking task, fall back to simple HTML if it panics.
+    let processed_html_bytes = tokio::task::spawn_blocking({
+        let html_bytes_task = Arc::clone(&html_bytes_arc);
+        let simple_html_task = simple_html.clone();
+        // Move charset, document_url, options into the closure for spawn_blocking
         move || {
-            // Set a thread-local panic hook that returns control instead of aborting
-            let prev_hook = std::panic::take_hook();
-            std::panic::set_hook(Box::new(|_| {}));
+            // This inner closure is for catch_unwind
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                // DOM creation can panic (e.g. charset not found by monolith)
+                let dom = monolith::html::html_to_dom(&html_bytes_task, charset.clone());
 
-            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                // Try to create DOM with error handling
-                let dom = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    monolith::html::html_to_dom(&html_bytes, charset.clone())
-                })) {
-                    Ok(dom) => dom,
-                    Err(_) => return simple_html.as_bytes().to_vec(),
-                };
+                // Attempt to create a blocking client for asset embedding
+                let client_result = reqwest::blocking::Client::builder()
+                    .user_agent(crate::USER_AGENT_STRING)
+                    .build();
 
-                // Try to process assets with error handling
-                let cache_map: Cache = Cache::new(0, None);
-                let mut cache: Option<Cache> = Some(cache_map);
-                let blocking_client = reqwest::blocking::Client::new();
-
-                // Wrap all Monolith operations in catch_unwind
-                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                if let Ok(client) = client_result {
+                    let cache_map: Cache = Cache::new(0, None); // Removed mut
+                    let mut cache: Option<Cache> = Some(cache_map);
+                    // walk_and_embed_assets can panic
                     monolith::html::walk_and_embed_assets(
                         &mut cache,
-                        &blocking_client,
-                        &document_url,
+                        &client,
+                        &document_url, // document_url was moved into spawn_blocking closure
                         &dom.document,
-                        &options,
+                        &options,      // options was moved into spawn_blocking closure
                     );
-
-                    monolith::html::serialize_document(dom, charset, &options)
-                }));
-
-                match result {
-                    Ok(html) => html,
-                    Err(_) => simple_html.as_bytes().to_vec(),
+                } else {
+                    tracing::warn!(
+                        "Monolith: Failed to create blocking client for asset embedding ({}). Skipping asset embedding for {}.",
+                        client_result.err().map(|e| e.to_string()).unwrap_or_else(|| "unknown error".into()),
+                        document_url
+                    );
                 }
-            }));
 
-            // Restore the previous panic hook
-            std::panic::set_hook(prev_hook);
-
-            // Return result or fallback to simple HTML
-            match result {
-                Ok(html) => html,
-                Err(_) => simple_html.as_bytes().to_vec(),
+                // serialize_document can panic
+                monolith::html::serialize_document(dom, charset, &options)
+            })) {
+                Ok(processed_bytes) => { // Monolith operations completed without panic
+                    tracing::debug!("Monolith processing successful for {}", document_url);
+                    processed_bytes
+                },
+                Err(panic_payload) => { // Monolith panicked at some point during DOM, asset, or serialization
+                    let panic_msg = if let Some(s) = panic_payload.downcast_ref::<String>() {
+                        s.clone()
+                    } else if let Some(s) = panic_payload.downcast_ref::<&str>() {
+                        s.to_string()
+                    } else {
+                        "Unknown panic".to_string()
+                    };
+                    tracing::warn!(
+                        "Monolith panicked while processing {}: {}. Falling back to simple HTML.",
+                        document_url, panic_msg // Use moved document_url
+                    );
+                    simple_html_task.into_bytes()
+                }
             }
         }
     })
     .await
-    .unwrap_or_else(|_| simple_html.as_bytes().to_vec());
+    .unwrap_or_else(|e| { // Error from spawn_blocking (e.g., task panicked, which we catch above, or cancelled)
+        tracing::error!("Task for monolith processing panicked or was cancelled for {}: {}. Falling back to simple HTML.", url, e);
+        simple_html.into_bytes()
+    });
 
-    String::from_utf8(processed_html)
-        .map_err(|e| anyhow::anyhow!("Failed to convert processed HTML to UTF-8: {}", e))
+    String::from_utf8(processed_html_bytes)
+        .map_err(|e| anyhow::anyhow!("Failed to convert processed HTML (UTF-8) for {}: {}", url, e))
 }
+
+// --- Functions moved from url.rs ---
+
+// Ensure tokio::time::Duration is available if not already imported at the top
+// use tokio::time::Duration; // Already imported via html.rs top-level imports if used by create_http_client etc.
+// PathBuf is already used and Result from anyhow.
+
+/// Processes a URL, retrying on failure. Writes to output_path or stdout.
+pub(crate) async fn process_url_with_retry(
+    url: &str,
+    output_path: Option<PathBuf>,
+    max_retries: u32,
+) -> Result<(), (String, anyhow::Error)> {
+    if url.starts_with("file://") {
+        tracing::info!("Processing local file (no retry needed): {}", url);
+        // Call to self::process_url_async (which is already in html.rs)
+        match self::process_url_async(url, output_path).await {
+            Ok(_) => return Ok(()),
+            Err(e) => {
+                tracing::error!("Error processing local file {}: {}", url, e);
+                return Err((url.to_string(), e));
+            }
+        }
+    }
+
+    let mut last_error = None;
+    for attempt in 0..=max_retries {
+        if attempt > 0 {
+            tracing::info!(
+                "Retrying {} (attempt {}/{})",
+                url,
+                attempt + 1,
+                max_retries + 1
+            );
+        }
+        // Call to self::process_url_async
+        match self::process_url_async(url, output_path.clone()).await {
+            Ok(_) => {
+                if attempt > 0 {
+                    tracing::info!("Successfully processed {} on attempt {}", url, attempt + 1);
+                }
+                return Ok(());
+            }
+            Err(e) => {
+                tracing::debug!("Attempt {} failed for {}: {}", attempt + 1, url, e);
+                last_error = Some(e);
+                if attempt < max_retries {
+                    tokio::time::sleep(Duration::from_secs(1 << attempt)).await;
+                }
+            }
+        }
+    }
+    Err((url.to_string(), last_error.unwrap()))
+}
+
+/// Fetches and processes URL content, retrying on failure. Optionally writes to file and returns content.
+pub(crate) async fn process_url_content_with_retry( // Renamed to avoid collision
+    url: &str,
+    output_path: Option<PathBuf>,
+    max_retries: u32,
+) -> Result<Option<String>, (String, anyhow::Error)> {
+    let mut last_error = None;
+    let mut content: Option<String> = None;
+
+    for attempt in 0..=max_retries {
+        if attempt > 0 {
+            tracing::info!(
+                "Retrying {} for content (attempt {}/{})",
+                url,
+                attempt + 1,
+                max_retries + 1
+            );
+        }
+        // Call to self::process_url_with_content (the one already in html.rs that returns String)
+        match self::process_url_with_content(url, output_path.clone()).await {
+            Ok(md_content) => {
+                if !md_content.is_empty() {
+                    if attempt > 0 { tracing::info!("Successfully fetched non-empty content for {} on attempt {}", url, attempt + 1); }
+                    content = Some(md_content);
+                } else {
+                    // md_content is empty. Check if it was a deliberate skip by get_markdown_for_url.
+                    // get_markdown_for_url returns None for skips, and process_url_with_content translates that to String::new().
+                    let was_skipped = self::get_markdown_for_url(url).await.unwrap_or(None).is_none();
+                    if was_skipped {
+                         tracing::debug!("URL {} was skipped (e.g. non-HTML), retry logic will yield None for content.", url);
+                         content = None; // Explicitly set to None for a skip.
+                    } else {
+                         tracing::info!("Successfully fetched empty content for {} on attempt {}", url, attempt + 1);
+                         content = Some(md_content); // Actual empty page
+                    }
+                }
+                break; // Processing successful (or determined skip), exit retry loop.
+            }
+            Err(e) => {
+                tracing::debug!("Attempt {} to fetch content failed for {}: {}", attempt + 1, url, e);
+                last_error = Some(e);
+                if attempt < max_retries {
+                    tokio::time::sleep(Duration::from_secs(1 << attempt)).await;
+                }
+            }
+        }
+    }
+
+    // If content is Some, it means success or empty result from processing
+    // If content is None, it means either all retries failed, or it was a non-HTML skip
+    if content.is_some() {
+        Ok(content) // This will be Some(String) or Some("")
+    } else if self::get_markdown_for_url(url).await.unwrap_or(None).is_none() && last_error.is_none() {
+        // Explicitly skipped by get_markdown_for_url (e.g. non-HTML) and no actual processing error occurred.
+        Ok(None)
+    }
+    else {
+        Err((url.to_string(), last_error.unwrap_or_else(|| anyhow::anyhow!("Unknown error after retries for {}", url))))
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
