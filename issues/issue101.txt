@@ -48,4 +48,7 @@ echo "https://helpx.adobe.com/pl/indesign/using/using-fonts.html" | twars-url2md
 
 prints the `Processing URL:` etc. but then nothing gets written. 
 
-Read `README.md` to understand how the app should work. 
+<task>
+Read `./README.md` to understand how the app should work. Then write into `./TODO.md` a detailed plan on how you want to fix the issues described above. 
+</task>
+

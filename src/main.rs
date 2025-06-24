@@ -68,17 +68,15 @@ fn main() {
             } else {
                 tracing::error!("Panic occurred: {}", panic_info);
             }
+        } else if let Some(location) = panic_info.location() {
+            eprintln!(
+                "PANIC: Processing error in {} at line {}: {}",
+                location.file(),
+                location.line(),
+                panic_info
+            );
         } else {
-            if let Some(location) = panic_info.location() {
-                eprintln!(
-                    "PANIC: Processing error in {} at line {}: {}",
-                    location.file(),
-                    location.line(),
-                    panic_info
-                );
-            } else {
-                eprintln!("PANIC: Processing error occurred: {}", panic_info);
-            }
+            eprintln!("PANIC: Processing error occurred: {}", panic_info);
         }
     }));
 

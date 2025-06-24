@@ -55,8 +55,12 @@ impl Cli {
                 Ok(cli) => {
                     // Add validation for input arguments
                     if !cli.stdin && cli.input.is_none() {
-                        eprintln!("Error: Either --stdin or --input must be specified");
-                        eprintln!("Run with --help for usage information");
+                        eprintln!("Error: Either --stdin or --input must be specified\n");
+                        eprintln!("Usage examples:");
+                        eprintln!("  twars-url2md --input urls.txt --output ./markdown");
+                        eprintln!("  echo \"https://example.com\" | twars-url2md --stdin");
+                        eprintln!("  twars-url2md --input urls.txt --pack combined.md\n");
+                        eprintln!("Run 'twars-url2md --help' for full usage information");
                         std::process::exit(1);
                     }
                     cli
@@ -65,8 +69,8 @@ impl Cli {
                     if err.kind() == clap::error::ErrorKind::DisplayHelp
                         || err.kind() == clap::error::ErrorKind::DisplayVersion
                     {
-                        // For help and version, Clap prints the message itself.
-                        // We just need to exit cleanly.
+                        // For help and version, print the error (which contains the help/version text)
+                        err.print().expect("Failed to print help/version");
                         std::process::exit(0);
                     }
                     // For other errors, print a concise message.

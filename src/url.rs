@@ -7,7 +7,6 @@ use markup5ever_rcdom as rcdom;
 // use rayon::prelude::*; // No longer used after removing extract_urls_from_html_efficient
 use regex;
 use std::path::{Path, PathBuf};
-use tokio::time::Duration;
 pub use url::Url;
 
 /// Create an output path for a URL based on its structure

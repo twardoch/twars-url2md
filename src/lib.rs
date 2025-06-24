@@ -29,7 +29,7 @@ pub fn version() -> String {
 
 /// Default user agent string for HTTP requests
 pub(crate) const USER_AGENT_STRING: &str =
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:123.0) Gecko/20100101 Firefox/123.0";
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 /// Configuration for URL processing
 #[derive(Debug, Clone)]
@@ -53,8 +53,15 @@ pub async fn process_urls(
     let pb = if urls.len() > 1 {
         let pb = ProgressBar::new(urls.len() as u64);
         let style = ProgressStyle::default_bar()
-            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})")
-            .map_err(|e| tracing::warn!("Failed to create progress bar template: {}. Using default style.", e))
+            .template(
+                "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
+            )
+            .map_err(|e| {
+                tracing::warn!(
+                    "Failed to create progress bar template: {}. Using default style.",
+                    e
+                )
+            })
             .unwrap_or_else(|_| ProgressStyle::default_bar()) // Fallback to default style
             .progress_chars("#>-");
         pb.set_style(style);
@@ -81,7 +88,11 @@ pub async fn process_urls(
     };
 
     // Clone the URLs vector before moving it into the stream for ordering packed content later
-    let urls_for_ordering = if should_pack { urls.clone() } else { Vec::new() };
+    let urls_for_ordering = if should_pack {
+        urls.clone()
+    } else {
+        Vec::new()
+    };
 
     let results = stream::iter(urls.into_iter().map(|url_str| {
         let pb_clone = Arc::clone(&pb);
@@ -181,7 +192,10 @@ pub async fn process_urls(
 
         if let Some(parent) = path.parent() {
             if !parent.exists() {
-                tracing::debug!("Creating parent directory for packed file: {}", parent.display());
+                tracing::debug!(
+                    "Creating parent directory for packed file: {}",
+                    parent.display()
+                );
                 if let Err(e) = tokio::fs::create_dir_all(parent).await {
                     tracing::error!(
                         "Failed to create directory {} for packed file: {}",
@@ -196,7 +210,11 @@ pub async fn process_urls(
         let mut packed_file = match tokio::fs::File::create(&path).await {
             Ok(file) => file,
             Err(e) => {
-                tracing::error!("Fatal: Error creating packed file {}: {}", path.display(), e);
+                tracing::error!(
+                    "Fatal: Error creating packed file {}: {}",
+                    path.display(),
+                    e
+                );
                 // Collect all errors from processing and return them
                 return Ok(results.into_iter().filter_map(|r| r.err()).collect());
             }
@@ -220,14 +238,22 @@ pub async fn process_urls(
             tracing::debug!("Packed content reordered according to input URL order.");
         }
 
-
         for (url_str, content) in content_to_write.iter() {
             let formatted_entry = format!("# {}\n\n{}\n\n---\n\n", url_str, content);
             if let Err(e) = packed_file.write_all(formatted_entry.as_bytes()).await {
-                tracing::error!("Error writing entry for {} to packed file {}: {}", url_str, path.display(), e);
+                tracing::error!(
+                    "Error writing entry for {} to packed file {}: {}",
+                    url_str,
+                    path.display(),
+                    e
+                );
             }
         }
-        tracing::info!("Successfully wrote {} entries to packed file {}", content_to_write.len(), path.display());
+        tracing::info!(
+            "Successfully wrote {} entries to packed file {}",
+            content_to_write.len(),
+            path.display()
+        );
     }
 
     // Collect and return errors
