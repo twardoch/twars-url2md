@@ -198,4 +198,7 @@ The system connects these components through:
 
 The build system embeds version and build metadata for traceability, ensuring each deployment can be traced to its source state.
 
+To read the full codebase, run `npx repomix -o llms.txt .` and then read `llms.txt`
+
 $END$
+

@@ -15,30 +15,41 @@ pub fn create_output_path(url: &Url, base_dir: &Path) -> Result<PathBuf> {
 
     let path_segments: Vec<_> = url.path().split('/').filter(|s| !s.is_empty()).collect();
 
-    let dir_path = base_dir.join(host);
-    std::fs::create_dir_all(&dir_path)
-        .with_context(|| format!("Failed to create directory: {}", dir_path.display()))?;
+    // Build the directory path, including trailing-segment directories if the URL ends with '/'
+    let mut dir_path_full = base_dir.join(host);
 
-    let mut full_path = dir_path;
-    if !path_segments.is_empty() {
-        for segment in &path_segments[..path_segments.len() - 1] {
-            full_path = full_path.join(segment);
-            std::fs::create_dir_all(&full_path)?;
-        }
+    // Decide which segments belong to directories vs. filename
+    let segments_for_dirs: &[&str] = if path_segments.is_empty() {
+        &[]
+    } else if url.path().ends_with('/') {
+        // All segments are directories when URL ends with '/'
+        &path_segments[..]
+    } else {
+        // All except the last segment represent directories
+        &path_segments[..path_segments.len() - 1]
+    };
+
+    for segment in segments_for_dirs {
+        dir_path_full = dir_path_full.join(segment);
     }
 
+    // Ensure directories exist on disk
+    std::fs::create_dir_all(&dir_path_full).with_context(|| {
+        format!("Failed to create directory: {}", dir_path_full.display())
+    })?;
+
+    // Determine filename
     let filename = if url.path().ends_with('/') || path_segments.is_empty() {
         "index.md".to_string()
     } else {
         let last_segment = path_segments.last().unwrap();
-        if let Some(stem) = Path::new(last_segment).file_stem() {
-            format!("{}.md", stem.to_string_lossy())
-        } else {
-            format!("{}.md", last_segment)
-        }
+        Path::new(last_segment)
+            .file_stem()
+            .map(|s| format!("{}.md", s.to_string_lossy()))
+            .unwrap_or_else(|| format!("{}.md", last_segment))
     };
 
-    Ok(full_path.join(filename))
+    Ok(dir_path_full.join(filename))
 }
 
 /// Extract URLs from any text input
@@ -220,7 +231,12 @@ fn try_parse_url(url_str: &str, base_url: Option<&str>) -> Option<String> {
     // Try parsing as absolute URL first
     if let Ok(url) = Url::parse(url_str) {
         if url.scheme() == "http" || url.scheme() == "https" {
-            return Some(url.to_string());
+            // Normalize: drop trailing slash for bare domain URLs ("https://example.com/")
+            let mut normalized = url.to_string();
+            if url.path() == "/" && url.query().is_none() && url.fragment().is_none() {
+                normalized.pop(); // remove the trailing '/'
+            }
+            return Some(normalized);
         }
     }
 

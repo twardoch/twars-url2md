@@ -1,0 +1,34 @@
+```
+./testdata/example.sh
+```
+
+which is
+
+```
+#!/usr/bin/env bash
+cd "$(dirname "$0")"
+
+echo "https://helpx.adobe.com/pl/indesign/using/using-fonts.html" | ../target/release/twars-url2md --stdin -o out
+
+```
+
+yields
+
+```
+2025-06-24T22:09:19.613518Z  INFO twars_url2md::cli: Reading URLs from stdin.
+2025-06-24T22:09:19.614579Z  INFO twars_url2md: Collected 1 URLs to process.
+2025-06-24T22:09:19.615073Z  INFO twars_url2md: Processing URL: https://helpx.adobe.com/pl/indesign/using/using-fonts.html
+2025-06-24T22:09:49.621694Z ERROR twars_url2md::html: HTTP request timed out for https://helpx.adobe.com/pl/indesign/using/using-fonts.html after 30 seconds
+2025-06-24T22:09:49.621761Z  WARN twars_url2md::html: Error fetching HTML from https://helpx.adobe.com/pl/indesign/using/using-fonts.html (get_markdown_for_url): Request timed out for URL: https://helpx.adobe.com/pl/indesign/using/using-fonts.html. Using fallback processing.
+2025-06-24T22:10:50.624652Z  INFO twars_url2md::html: Retrying https://helpx.adobe.com/pl/indesign/using/using-fonts.html (attempt 2/3)
+
+```
+
+but 
+
+```
+curl "https://helpx.adobe.com/pl/indesign/using/using-fonts.html"
+``` 
+
+works just fine
+
