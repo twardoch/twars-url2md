@@ -223,8 +223,12 @@ async fn fetch_html(client: &Client, url: &str) -> Result<String> {
 
     tracing::debug!("Sending HTTP request to: {}", url);
 
-    // Wrap the request in a timeout to catch hanging connections
-    let response = match tokio::time::timeout(Duration::from_secs(30), client.get(url).send()).await
+    // Wrap the request in a timeout to catch hanging connections. Some heavy pages (e.g. large
+    // enterprise-hosted help portals) consistently take >30 s to negotiate TLS and send the first
+    // byte.  We therefore use a more generous 90-second ceiling here and rely on the lower
+    // connect-timeout (20 s) plus the client-level overall timeout (60 s) to abort pathological
+    // situations more quickly.
+    let response = match tokio::time::timeout(Duration::from_secs(90), client.get(url).send()).await
     {
         Ok(Ok(resp)) => {
             tracing::debug!("Received HTTP response from: {}", url);
@@ -235,7 +239,7 @@ async fn fetch_html(client: &Client, url: &str) -> Result<String> {
             return Err(anyhow::anyhow!("Failed to fetch URL {}: {}", url, e));
         }
         Err(_) => {
-            tracing::error!("HTTP request timed out for {} after 30 seconds", url);
+            tracing::error!("HTTP request timed out for {} after 90 seconds", url);
             return Err(anyhow::anyhow!("Request timed out for URL: {}", url));
         }
     };
