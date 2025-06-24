@@ -86,11 +86,6 @@ version = "^2.10"
 features = []
 
 
-[dependencies.openssl]
-version = "0.10"
-features = ["vendored"]
-
-
 [dependencies.regex]
 version = "1.10"
 default-features = false
@@ -99,7 +94,8 @@ features = ["std", "perf-dfa", "unicode-perl"]
 
 [dependencies.reqwest]
 version = "0.12"
-features = ["default-tls", "gzip", "brotli", "deflate"]
+default-features = false
+features = ["rustls-tls-native-roots", "gzip", "brotli", "deflate"]
 
 
 [dependencies.tokio]
