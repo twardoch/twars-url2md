@@ -1,27 +1,165 @@
 ```
-./testdata/example.sh
+./build.sh; ./testdata/example.sh --verbose
 ```
 
-which is
+where `example.sh` contains:
 
 ```
 #!/usr/bin/env bash
 cd "$(dirname "$0")"
 
-echo "https://helpx.adobe.com/pl/indesign/using/using-fonts.html" | ../target/release/twars-url2md --stdin -o out
+echo "https://helpx.adobe.com/pl/indesign/using/using-fonts.html" | ../target/release/twars-url2md --stdin -o out "$@"
 
 ```
 
 yields
 
 ```
-2025-06-24T22:09:19.613518Z  INFO twars_url2md::cli: Reading URLs from stdin.
-2025-06-24T22:09:19.614579Z  INFO twars_url2md: Collected 1 URLs to process.
-2025-06-24T22:09:19.615073Z  INFO twars_url2md: Processing URL: https://helpx.adobe.com/pl/indesign/using/using-fonts.html
-2025-06-24T22:09:49.621694Z ERROR twars_url2md::html: HTTP request timed out for https://helpx.adobe.com/pl/indesign/using/using-fonts.html after 30 seconds
-2025-06-24T22:09:49.621761Z  WARN twars_url2md::html: Error fetching HTML from https://helpx.adobe.com/pl/indesign/using/using-fonts.html (get_markdown_for_url): Request timed out for URL: https://helpx.adobe.com/pl/indesign/using/using-fonts.html. Using fallback processing.
-2025-06-24T22:10:50.624652Z  INFO twars_url2md::html: Retrying https://helpx.adobe.com/pl/indesign/using/using-fonts.html (attempt 2/3)
 
+📦 Repomix v0.3.9
+
+No custom config found at repomix.config.json5, repomix.config.jsonc, repomix.config.json or global config at /Users/adam/.config/repomix/repomix.config.json5, /Users/adam/.config/repomix/repomix.config.jsonc, /Users/adam/.config/repomix/repomix.config.json.
+You can add a config file for additional settings. Please check https://github.com/yamadashy/repomix for more information.
+✔ Packing completed successfully!
+
+📈 Top 5 Files by Character Count and Token Count:
+──────────────────────────────────────────────────
+1.  src/html.rs (24,896 chars, 5,155 tokens, 14.3%)
+2.  TODO.md (13,341 chars, 3,229 tokens, 9%)
+3.  src/url.rs (10,443 chars, 2,326 tokens, 6.5%)
+4.  src/lib.rs (10,279 chars, 2,015 tokens, 5.6%)
+5.  tests/integration/e2e_tests.rs (9,880 chars, 2,322 tokens, 6.4%)
+
+🔎 Security Check:
+──────────────────
+2 suspicious file(s) detected and excluded from the output:
+1. src/tests.rs
+   - found basic auth credential: https://user:pass@example.com
+2. tests/unit/url_tests.rs
+   - found basic auth credential: https://user:pass@example.com
+
+These files have been excluded from the output for security reasons.
+Please review these files for potential sensitive information.
+
+📊 Pack Summary:
+────────────────
+  Total Files: 35 files
+  Total Chars: 160,452 chars
+ Total Tokens: 37,012 tokens
+       Output: llms.txt
+     Security: 2 suspicious file(s) detected and excluded
+
+🎉 All Done!
+Your repository has been successfully packed.
+
+💡 Repomix is now available in your browser! Try it at https://repomix.com
+[INFO] Starting build process for twars-url2md...
+[INFO] Checking prerequisites...
+[SUCCESS] Prerequisites check passed
+[INFO] Formatting code...
+[SUCCESS] Code is already formatted
+[INFO] Running linter (clippy)...
+    Checking twars-url2md v1.4.2 (/Users/adam/Developer/pub/twars-url2md)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.96s
+[SUCCESS] Linting completed
+[INFO] Running tests...
+   Compiling twars-url2md v1.4.2 (/Users/adam/Developer/pub/twars-url2md)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.22s
+     Running unittests src/lib.rs (target/debug/deps/twars_url2md-587b401a13a3e5bd)
+
+running 18 tests
+test markdown::tests::test_convert_html_to_markdown ... ok
+test markdown::tests::test_blockquotes ... ok
+test markdown::tests::test_empty_elements ... ok
+test markdown::tests::test_code_blocks ... ok
+test markdown::tests::test_heading_levels ... ok
+test html::tests::test_markdown_output ... ok
+test markdown::tests::test_horizontal_rule ... ok
+test markdown::tests::test_links_and_images ... ok
+test markdown::tests::test_nested_formatting ... ok
+test markdown::tests::test_lists ... ok
+test markdown::tests::test_script_style_removal ... ok
+test markdown::tests::test_special_characters ... ok
+test markdown::tests::test_table_conversion ... ok
+test markdown::tests::test_text_formatting ... ok
+test url::tests::test_create_output_path ... ok
+test url::tests::test_extract_urls_from_text ... ok
+test cli::tests::test_collect_urls_from_text_file ... ok
+test html::tests::test_html_processing ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.01s
+
+     Running unittests src/main.rs (target/debug/deps/twars_url2md-300fd0dc3816689c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/tests.rs (target/debug/deps/tests-d47612c385d78850)
+
+running 31 tests
+test unit::url_tests::html_extraction_tests::test_empty_html ... ok
+test unit::url_tests::html_extraction_tests::test_html_with_url_in_text ... ok
+test unit::url_tests::html_extraction_tests::test_extract_urls_from_simple_html ... ok
+test unit::url_tests::html_extraction_tests::test_extract_urls_from_srcset ... ok
+test unit::url_tests::html_extraction_tests::test_extract_relative_urls_with_base ... ok
+test unit::url_tests::html_extraction_tests::test_duplicate_urls_in_html ... ok
+test unit::url_tests::html_extraction_tests::test_ignore_non_http_urls_in_html ... ok
+test unit::url_tests::html_extraction_tests::test_malformed_html_handling ... ok
+test unit::url_tests::html_extraction_tests::test_extract_urls_with_data_attributes ... ok
+test unit::url_tests::output_path_tests::test_create_output_path_simple ... ok
+test unit::url_tests::output_path_tests::test_create_output_path_with_extension ... ok
+test unit::url_tests::output_path_tests::test_create_output_path_trailing_slash ... ok
+test unit::url_tests::output_path_tests::test_create_output_directories ... ok
+test unit::url_tests::output_path_tests::test_create_output_path_no_host ... ok
+test unit::url_tests::output_path_tests::test_create_output_path_with_path ... ok
+test unit::url_tests::output_path_tests::test_create_output_path_complex ... ok
+test unit::url_tests::url_extraction_tests::test_extract_urls_deduplication ... ok
+test unit::url_tests::url_extraction_tests::test_extract_local_file_paths ... ok
+test unit::url_tests::url_extraction_tests::test_extract_urls_from_plain_text ... ok
+test unit::url_tests::url_extraction_tests::test_extract_urls_from_markdown ... ok
+test unit::url_tests::url_extraction_tests::test_extract_urls_with_base_url ... ok
+test unit::url_tests::url_extraction_tests::test_invalid_urls_ignored ... ok
+test unit::url_tests::url_extraction_tests::test_mixed_content ... ok
+test unit::url_tests::url_validation_tests::test_internationalized_domains ... ok
+test unit::url_tests::url_extraction_tests::test_urls_with_special_characters ... ok
+test unit::url_tests::url_validation_tests::test_malformed_urls_rejected ... ok
+test unit::url_tests::url_validation_tests::test_url_with_fragments ... ok
+test unit::url_tests::url_validation_tests::test_url_with_query_params ... ok
+test unit::url_tests::url_extraction_tests::test_empty_input ... ok
+test unit::url_tests::url_validation_tests::test_urls_with_authentication ... ok
+test unit::url_tests::url_validation_tests::test_urls_with_ports ... ok
+
+test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests twars_url2md
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[SUCCESS] Tests completed
+[INFO] Building release binary...
+   Compiling twars-url2md v1.4.2 (/Users/adam/Developer/pub/twars-url2md)
+    Finished `release` profile [optimized] target(s) in 37.24s
+[SUCCESS] Release build completed
+[INFO] Binary location: target/release/twars-url2md
+[INFO] Binary size: 6.2M
+[SUCCESS] Build process completed successfully!
+
+2025-06-24T22:24:57.453849Z DEBUG twars_url2md: CLI args parsed and config created: Config { verbose: true, max_retries: 2, output_base: "out", single_file: true, has_output: true, pack_file: None }
+2025-06-24T22:24:57.453908Z DEBUG twars_url2md::cli: Collecting URLs from input sources...
+2025-06-24T22:24:57.453910Z  INFO twars_url2md::cli: Reading URLs from stdin.
+2025-06-24T22:24:57.454066Z DEBUG twars_url2md::cli: Extracted 1 URLs from content.
+2025-06-24T22:24:57.454071Z  INFO twars_url2md: Collected 1 URLs to process.
+2025-06-24T22:24:57.454279Z DEBUG twars_url2md: Concurrency limit set to: 16
+2025-06-24T22:24:57.454291Z  INFO twars_url2md: Processing URL: https://helpx.adobe.com/pl/indesign/using/using-fonts.html
+2025-06-24T22:24:57.454299Z DEBUG twars_url2md: Output path for https://helpx.adobe.com/pl/indesign/using/using-fonts.html: Some("out")
+2025-06-24T22:24:57.454311Z DEBUG twars_url2md::html: Creating HTTP client for URL (get_markdown_for_url): https://helpx.adobe.com/pl/indesign/using/using-fonts.html
+2025-06-24T22:24:57.457785Z DEBUG twars_url2md::html: Fetching HTML for URL (get_markdown_for_url): https://helpx.adobe.com/pl/indesign/using/using-fonts.html
+2025-06-24T22:24:57.457793Z DEBUG twars_url2md::html: Sending HTTP request to: https://helpx.adobe.com/pl/indesign/using/using-fonts.html
+2025-06-24T22:25:57.460414Z ERROR twars_url2md::html: HTTP request failed for https://helpx.adobe.com/pl/indesign/using/using-fonts.html: error sending request for url (https://helpx.adobe.com/pl/indesign/using/using-fonts.html)
+2025-06-24T22:25:57.460484Z  WARN twars_url2md::html: Error fetching HTML from https://helpx.adobe.com/pl/indesign/using/using-fonts.html (get_markdown_for_url): Failed to fetch URL https://helpx.adobe.com/pl/indesign/using/using-fonts.html: error sending request for url (https://helpx.adobe.com/pl/indesign/using/using-fonts.html). Using fallback processing.
 ```
 
 but 
@@ -30,5 +168,5 @@ but
 curl "https://helpx.adobe.com/pl/indesign/using/using-fonts.html"
 ``` 
 
-works just fine
+works just fine. 
 
