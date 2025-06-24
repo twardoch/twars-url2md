@@ -1,0 +1,58 @@
+---
+description: Specifications for URL processing, validation, transformation and retry mechanisms for web content processing
+globs: src/url.rs,src/html.rs,src/cli.rs,src/lib.rs
+alwaysApply: false
+---
+
+
+# url-processing-algorithm
+
+### URL Processing Core Components
+
+#### URL Extraction and Validation (Importance: 95)
+- Extracts URLs from text/HTML content using custom patterns
+- Validates URLs against business rules:
+  - Skips data: and javascript: URLs
+  - Handles file:// URLs and local paths
+  - Resolves relative URLs against base URL
+- Deduplicates extracted URLs while preserving order
+- Converts local file paths to file:// URL format
+
+#### URL Transformation Pipeline (Importance: 90)
+- Creates directory structure mirroring URL paths
+- Generates output paths based on URL structure:
+  - Host becomes top-level directory
+  - Path segments become subdirectories
+  - Last segment becomes filename with .md extension
+  - Default to index.md for root/empty paths
+
+#### Retry Mechanism (Importance: 85)
+- Implements exponential backoff for failed requests
+- Handles transient network errors with multiple attempts
+- Provides fallback strategies for content processing:
+  1. Monolith-based HTML cleaning
+  2. Simple HTML transformation if Monolith fails 
+  3. Direct content extraction as last resort
+
+#### HTML URL Discovery (Importance: 80)
+- Extracts URLs from HTML attributes:
+  - href, src, data-src
+  - data-href, data-url  
+  - srcset (handles multiple URLs)
+- Fallback URL detection using LinkFinder
+- Special handling for HTML content types
+
+#### Concurrent URL Processing (Importance: 75)
+- Dynamic concurrency based on CPU cores
+- URL processing queue management
+- Progress tracking for bulk operations
+- Content reordering to match input sequence
+
+File Paths:
+- `src/url.rs`: URL extraction and transformation
+- `src/html.rs`: HTML processing and URL discovery
+- `src/lib.rs`: Concurrent processing coordination
+
+$END$
+
+ If you're using this file in context, clearly say in italics in one small line that "Context added by Giga url-processing-algorithm".
