@@ -195,19 +195,17 @@ fn create_http_client() -> Result<Client> {
         "Accept-Language",
         HeaderValue::from_static("en-US,en;q=0.9"),
     );
-    headers.insert(
-        "Accept-Encoding",
-        HeaderValue::from_static("gzip, deflate, br"),
-    );
 
     Client::builder()
         .default_headers(headers)
         .pool_idle_timeout(Duration::from_secs(30))
         .pool_max_idle_per_host(10)
         .tcp_keepalive(Duration::from_secs(30))
-        .timeout(Duration::from_secs(60)) // Increase overall timeout
-        .connect_timeout(Duration::from_secs(20)) // Increase connection timeout
-        .http1_only() // Force HTTP/1.1 instead of HTTP/2
+        .timeout(Duration::from_secs(60)) // Overall request deadline (headers + body)
+        .connect_timeout(Duration::from_secs(20)) // TCP/TLS handshake deadline
+        // Allow HTTP/2 (default). Some CDNs only serve large pages efficiently over h2
+        // and may stall or throttle h1 connections, which manifested as 30 s time-outs
+        // on `helpx.adobe.com`.
         .build()
         .context("Failed to create HTTP client")
 }

@@ -34,9 +34,8 @@ pub fn create_output_path(url: &Url, base_dir: &Path) -> Result<PathBuf> {
     }
 
     // Ensure directories exist on disk
-    std::fs::create_dir_all(&dir_path_full).with_context(|| {
-        format!("Failed to create directory: {}", dir_path_full.display())
-    })?;
+    std::fs::create_dir_all(&dir_path_full)
+        .with_context(|| format!("Failed to create directory: {}", dir_path_full.display()))?;
 
     // Determine filename
     let filename = if url.path().ends_with('/') || path_segments.is_empty() {

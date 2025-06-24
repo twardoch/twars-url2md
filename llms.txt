@@ -75,6 +75,7 @@ tests/
   tests.rs
 .cursorrules
 .gitignore
+AGENTS.md
 build.rs
 build.sh
 Cargo.toml
@@ -91,49 +92,6 @@ TODO.md
 
 <files>
 This section contains the contents of the repository's files.
-
-<file path="issues/issue102.txt">
-```
-./testdata/example.sh
-```
-
-which is
-
-```
-#!/usr/bin/env bash
-cd "$(dirname "$0")"
-
-echo "https://helpx.adobe.com/pl/indesign/using/using-fonts.html" | ../target/release/twars-url2md --stdin -o out
-
-```
-
-yields
-
-```
-2025-06-24T22:09:19.613518Z  INFO twars_url2md::cli: Reading URLs from stdin.
-2025-06-24T22:09:19.614579Z  INFO twars_url2md: Collected 1 URLs to process.
-2025-06-24T22:09:19.615073Z  INFO twars_url2md: Processing URL: https://helpx.adobe.com/pl/indesign/using/using-fonts.html
-2025-06-24T22:09:49.621694Z ERROR twars_url2md::html: HTTP request timed out for https://helpx.adobe.com/pl/indesign/using/using-fonts.html after 30 seconds
-2025-06-24T22:09:49.621761Z  WARN twars_url2md::html: Error fetching HTML from https://helpx.adobe.com/pl/indesign/using/using-fonts.html (get_markdown_for_url): Request timed out for URL: https://helpx.adobe.com/pl/indesign/using/using-fonts.html. Using fallback processing.
-2025-06-24T22:10:50.624652Z  INFO twars_url2md::html: Retrying https://helpx.adobe.com/pl/indesign/using/using-fonts.html (attempt 2/3)
-
-```
-
-but 
-
-```
-curl "https://helpx.adobe.com/pl/indesign/using/using-fonts.html"
-``` 
-
-works just fine
-</file>
-
-<file path="testdata/example.sh">
-#!/usr/bin/env bash
-cd "$(dirname "$0")"
-
-echo "https://helpx.adobe.com/pl/indesign/using/using-fonts.html" | ../target/release/twars-url2md --stdin -o out
-</file>
 
 <file path=".cursor/rules/concurrency-model.mdc">
 ---
@@ -373,6 +331,42 @@ $END$
 ]
 </file>
 
+<file path="issues/issue102.txt">
+```
+./testdata/example.sh
+```
+
+which is
+
+```
+#!/usr/bin/env bash
+cd "$(dirname "$0")"
+
+echo "https://helpx.adobe.com/pl/indesign/using/using-fonts.html" | ../target/release/twars-url2md --stdin -o out
+
+```
+
+yields
+
+```
+2025-06-24T22:09:19.613518Z  INFO twars_url2md::cli: Reading URLs from stdin.
+2025-06-24T22:09:19.614579Z  INFO twars_url2md: Collected 1 URLs to process.
+2025-06-24T22:09:19.615073Z  INFO twars_url2md: Processing URL: https://helpx.adobe.com/pl/indesign/using/using-fonts.html
+2025-06-24T22:09:49.621694Z ERROR twars_url2md::html: HTTP request timed out for https://helpx.adobe.com/pl/indesign/using/using-fonts.html after 30 seconds
+2025-06-24T22:09:49.621761Z  WARN twars_url2md::html: Error fetching HTML from https://helpx.adobe.com/pl/indesign/using/using-fonts.html (get_markdown_for_url): Request timed out for URL: https://helpx.adobe.com/pl/indesign/using/using-fonts.html. Using fallback processing.
+2025-06-24T22:10:50.624652Z  INFO twars_url2md::html: Retrying https://helpx.adobe.com/pl/indesign/using/using-fonts.html (attempt 2/3)
+
+```
+
+but 
+
+```
+curl "https://helpx.adobe.com/pl/indesign/using/using-fonts.html"
+``` 
+
+works just fine
+</file>
+
 <file path="test_output/example.com/index.md">
 Example Domain
 
@@ -381,6 +375,13 @@ Example Domain
 This domain is for use in illustrative examples in documents. You may use this domain in literature without prior coordination or asking for permission.
 
 [More information...](https://www.iana.org/domains/example)
+</file>
+
+<file path="testdata/example.sh">
+#!/usr/bin/env bash
+cd "$(dirname "$0")"
+
+echo "https://helpx.adobe.com/pl/indesign/using/using-fonts.html" | ../target/release/twars-url2md --stdin -o out
 </file>
 
 <file path="tests/integration/e2e_tests.rs">
@@ -709,7 +710,7 @@ mod unit;
 // mod integration; // Temporarily disabled due to mockito version incompatibility
 </file>
 
-<file path=".cursorrules">
+<file path="AGENTS.md">
 # https://github.com/twardoch/twars-url2md
 
 ## 1. Project Overview
@@ -910,436 +911,7 @@ The system connects these components through:
 
 The build system embeds version and build metadata for traceability, ensuring each deployment can be traced to its source state.
 
-$END$
-</file>
-
-<file path="build.sh">
-#!/bin/bash
-# this_file: build.sh
-# Build script for twars-url2md - A powerful CLI tool for converting web pages to Markdown
-
-set -euo pipefail
-
-npx repomix -o llms.txt .
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# Function to print colored output
-print_status() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# Function to check if command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
-
-# Check prerequisites
-check_prerequisites() {
-    print_status "Checking prerequisites..."
-
-    if ! command_exists cargo; then
-        print_error "cargo is not installed. Please install Rust toolchain first."
-        exit 1
-    fi
-
-    if ! command_exists rustc; then
-        print_error "rustc is not installed. Please install Rust toolchain first."
-        exit 1
-    fi
-
-    print_success "Prerequisites check passed"
-}
-
-# Function to show help
-show_help() {
-    echo "Usage: $0 [OPTIONS]"
-    echo ""
-    echo "Build script for twars-url2md"
-    echo ""
-    echo "OPTIONS:"
-    echo "  -h, --help       Show this help message"
-    echo "  -f, --format     Format code only"
-    echo "  -l, --lint       Run linter only"
-    echo "  -t, --test       Run tests only"
-    echo "  -b, --build      Build release binary only"
-    echo "  -d, --dev        Build development binary only"
-    echo "  -c, --clean      Clean build artifacts"
-    echo "  -p, --package    Package for publishing"
-    echo "  -a, --all        Run all steps (format, lint, test, build) [default]"
-    echo "  --skip-format    Skip formatting step"
-    echo "  --skip-lint      Skip linting step"
-    echo "  --skip-test      Skip testing step"
-    echo ""
-    echo "Examples:"
-    echo "  $0                    # Run all steps"
-    echo "  $0 --format          # Format code only"
-    echo "  $0 --test            # Run tests only"
-    echo "  $0 --all --skip-test # Run all except tests"
-}
-
-# Default values
-FORMAT=false
-LINT=false
-TEST=false
-BUILD=false
-DEV_BUILD=false
-CLEAN=false
-PACKAGE=false
-ALL=true
-SKIP_FORMAT=false
-SKIP_LINT=false
-SKIP_TEST=false
-
-# Parse command line arguments
-while [[ $# -gt 0 ]]; do
-    case $1 in
-    -h | --help)
-        show_help
-        exit 0
-        ;;
-    -f | --format)
-        FORMAT=true
-        ALL=false
-        ;;
-    -l | --lint)
-        LINT=true
-        ALL=false
-        ;;
-    -t | --test)
-        TEST=true
-        ALL=false
-        ;;
-    -b | --build)
-        BUILD=true
-        ALL=false
-        ;;
-    -d | --dev)
-        DEV_BUILD=true
-        ALL=false
-        ;;
-    -c | --clean)
-        CLEAN=true
-        ALL=false
-        ;;
-    -p | --package)
-        PACKAGE=true
-        ALL=false
-        ;;
-    -a | --all)
-        ALL=true
-        ;;
-    --skip-format)
-        SKIP_FORMAT=true
-        ;;
-    --skip-lint)
-        SKIP_LINT=true
-        ;;
-    --skip-test)
-        SKIP_TEST=true
-        ;;
-    *)
-        print_error "Unknown option: $1"
-        echo "Use --help for usage information"
-        exit 1
-        ;;
-    esac
-    shift
-done
-
-# Main execution
-main() {
-    print_status "Starting build process for twars-url2md..."
-    check_prerequisites
-
-    # Clean if requested
-    if [[ $CLEAN == true ]]; then
-        print_status "Cleaning build artifacts..."
-        cargo clean
-        print_success "Clean completed"
-        return 0
-    fi
-
-    # Package if requested
-    if [[ $PACKAGE == true ]]; then
-        print_status "Packaging for publishing..."
-        cargo package
-        print_success "Package completed"
-        return 0
-    fi
-
-    # Format code
-    if [[ ($ALL == true && $SKIP_FORMAT == false) || $FORMAT == true ]]; then
-        print_status "Formatting code..."
-        if cargo fmt -- --check >/dev/null 2>&1; then
-            print_success "Code is already formatted"
-        else
-            print_warning "Code needs formatting, applying..."
-            cargo fmt
-            print_success "Code formatting completed"
-        fi
-    fi
-
-    # Run linter
-    if [[ ($ALL == true && $SKIP_LINT == false) || $LINT == true ]]; then
-        print_status "Running linter (clippy)..."
-        cargo clippy --all-targets --all-features -- -D warnings
-        print_success "Linting completed"
-    fi
-
-    # Run tests
-    if [[ ($ALL == true && $SKIP_TEST == false) || $TEST == true ]]; then
-        print_status "Running tests..."
-        cargo test --all-features
-        print_success "Tests completed"
-    fi
-
-    # Build development binary
-    if [[ $DEV_BUILD == true ]]; then
-        print_status "Building development binary..."
-        cargo build
-        print_success "Development build completed"
-        print_status "Binary location: target/debug/twars-url2md"
-    fi
-
-    # Build release binary
-    if [[ ($ALL == true) || $BUILD == true ]]; then
-        print_status "Building release binary..."
-        cargo build --release
-        print_success "Release build completed"
-        print_status "Binary location: target/release/twars-url2md"
-
-        # Show binary info
-        if [[ -f "target/release/twars-url2md" ]]; then
-            BINARY_SIZE=$(du -h target/release/twars-url2md | cut -f1)
-            print_status "Binary size: $BINARY_SIZE"
-        fi
-    fi
-
-    print_success "Build process completed successfully!"
-}
-
-# Run main function
-main
-</file>
-
-<file path="CLAUDE.md">
-# https://github.com/twardoch/twars-url2md
-
-## 1. Project Overview
-
-`twars-url2md` is a Rust CLI application that downloads URLs and converts them to clean, readable Markdown files. It can extract URLs from various text formats and process them concurrently.
-
-## 2. Commands
-
-### 2.1. Development
-```bash
-# Run tests
-cargo test --all-features
-
-# Format code
-cargo fmt
-
-# Run linter
-cargo clippy --all-targets --all-features
-
-# Build release binary
-cargo build --release
-
-# Run with arguments
-cargo run -- [OPTIONS]
-```
-
-### 2.2. Publishing
-```bash
-# Verify package before publishing
-cargo package
-
-# Publish to crates.io
-cargo publish
-```
-
-## 3. Architecture
-
-The codebase follows a modular design with clear separation of concerns:
-
-- `src/main.rs` - Entry point with panic handling wrapper
-- `src/lib.rs` - Core processing logic and orchestration
-- `src/cli.rs` - Command-line interface using Clap
-- `src/url.rs` - URL extraction and validation logic
-- `src/html.rs` - HTML fetching and cleaning using Monolith
-- `src/markdown.rs` - HTML to Markdown conversion using htmd
-
-### 3.1. Key Design Decisions
-
-1. **Panic Recovery**: The application catches panics from the Monolith library to prevent crashes during HTML processing (see `src/main.rs:10-20`).
-
-2. **Concurrent Processing**: Uses Tokio with adaptive concurrency based on available CPUs for parallel URL processing (see `src/lib.rs:107-120`).
-
-3. **Error Handling**: Uses `anyhow` for error propagation with custom error types and retry logic for network failures.
-
-4. **Output Organization**: Generates file paths based on URL structure when using `-o` option, creating a repository-like structure.
-
-## 4. Testing
-
-Run tests with `cargo test --all-features`. The test module is in `src/tests.rs` and includes unit tests for URL extraction and processing logic.
-
-## 5. Dependencies
-
-- **Async Runtime**: tokio with full features
-- **HTTP Client**: reqwest with vendored OpenSSL
-- **HTML Processing**: monolith for cleaning, htmd for Markdown conversion
-- **CLI**: clap with derive feature
-- **Utilities**: indicatif (progress bars), rayon (parallelism)
-
-## 6. Active Development
-
-See `TODO.md` for the modernization plan, which includes:
-- Migration from OpenSSL to rustls
-- Integration of structured logging with tracing
-- Enhanced error reporting
-- Performance optimizations
-
-When implementing new features, ensure compatibility with the async architecture and maintain the modular structure.
-
-# Working principles for software development
-
-## 7. When you write code (in any language)
-
-- Iterate gradually, avoiding major changes 
-- Minimize confirmations and checks
-- Preserve existing code/structure unless necessary
-- Use constants over magic numbers
-- Check for existing solutions in the codebase before starting
-- Check often the coherence of the code you’re writing with the rest of the code. 
-- Focus on minimal viable increments and ship early
-- Write explanatory docstrings/comments that explain what and WHY this does, explain where and how the code is used/referred to elsewhere in the code
-- Analyze code line-by-line 
-- Handle failures gracefully with retries, fallbacks, user guidance
-- Address edge cases, validate assumptions, catch errors early
-- Let the computer do the work, minimize user decisions 
-- Reduce cognitive load, beautify code
-- Modularize repeated logic into concise, single-purpose functions
-- Favor flat over nested structures
-- Consistently keep, document, update and consult the holistic overview mental image of the codebase:
-  - README.md (purpose and functionality) 
-  - CHANGELOG.md (past changes)
-  - TODO.md (future goals)
-  - PROGRESS.md (detailed flat task list)
-
-## 8. Use MCP tools if you can
-
-Before and during coding (if have access to tools), you should: 
-
-- consult the `context7` tool for most up-to-date software package documentation;
-- ask intelligent questions to the `deepseek/deepseek-r1-0528:free` model via the `chat_completion` tool to get additional reasoning;
-- also consult the `openai/o3` model via the `chat_completion` tool for additional reasoning and help with the task;
-- use the `sequentialthinking` tool to think about the best way to solve the task; 
-- use the `perplexity_ask` and `duckduckgo_web_search` tools to gather up-to-date information or context;
-
-## 9. Keep track of paths
-
-In each source file, maintain the up-to-date `this_file` record that shows the path of the current file relative to project root. Place the `this_file` record near the top of the file, as a comment after the shebangs, or in the YAML Markdown frontmatter. 
-
-## 10. If you write Python
-
-- PEP 8: Use consistent formatting and naming
-- Write clear, descriptive names for functions and variables
-- PEP 20: Keep code simple and explicit. Prioritize readability over cleverness
-- Use type hints in their simplest form (list, dict, | for unions)
-- PEP 257: Write clear, imperative docstrings
-- Use f-strings. Use structural pattern matching where appropriate
-- ALWAYS add "verbose" mode logugu-based logging, & debug-log
-- For CLI Python scripts, use fire & rich, and start the script with 
-
-```
-#!/usr/bin/env -S uv run -s
-# /// script
-# dependencies = ["PKG1", "PKG2"]
-# ///
-# this_file: PATH_TO_CURRENT_FILE
-```
-
-After Python changes run:
-
-```
-uzpy run .; fd -e py -x autoflake {}; fd -e py -x pyupgrade --py312-plus {}; fd -e py -x ruff check --output-format=github --fix --unsafe-fixes {}; fd -e py -x ruff format --respect-gitignore --target-version py312 {}; python -m pytest;
-```
-
-## 11. Additional guidelines
-
-Ask before extending/refactoring existing code in a way that may add complexity or break things. 
-
-When you’re finished, print "Wait, but" to go back, think & reflect, revise & improvement what you’ve done (but don’t invent functionality freely). Repeat this. But stick to the goal of "minimal viable next version". 
-
-## 12. Virtual team work
-
-Be creative, diligent, critical, relentless & funny! Lead two experts: "Ideot" for creative, unorthodox ideas, and "Critin" to critique flawed thinking and moderate for balanced discussions. The three of you shall illuminate knowledge with concise, beautiful responses, process methodically for clear answers, collaborate step-by-step, sharing thoughts and adapting. If errors are found, step back and focus on accuracy and progress.
-
-## 13. Development Guidelines
-
-- Only modify code directly relevant to the specific request. Avoid changing unrelated functionality.
-- Never replace code with placeholders like `# ... rest of the processing ...`. Always include complete code.
-- Break problems into smaller steps. Think through each step separately before implementing.
-- Always provide a complete PLAN with REASONING based on evidence from code and logs before making changes.
-- Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
-
-
-The URL-to-markdown conversion system consists of three primary business components:
-
-### 13.1. URL Processing and Content Extraction (Importance: 95)
-- Collects URLs from multiple input sources (stdin, files)
-- Validates and resolves URLs against base URLs when needed
-- Implements a robust retry mechanism for handling transient network failures
-- Processes URLs concurrently with dynamic CPU core adaptation
-- Located in `src/cli.rs` and `src/url.rs`
-
-### 13.2. HTML Processing Pipeline (Importance: 90)
-- Fetches HTML content using Monolith for specialized content extraction
-- Implements fallback mechanisms for non-HTML content
-- Handles custom HTML processing with configurable options
-- Transforms complex HTML structures into clean markdown
-- Located in `src/html.rs`
-
-### 13.3. Content Organization and Output Management (Importance: 85)
-- Creates structured output paths mirroring URL hierarchies
-- Supports packing mode for combining multiple URLs into single documents
-- Maintains original URL ordering in packed output
-- Handles both remote URLs and local file paths consistently
-- Located in `src/lib.rs` and `src/markdown.rs`
-
-### 13.4. Integration Points
-
-The system connects these components through:
-
-1. URL Collection -> HTML Processing
-- URLs are validated and normalized before processing
-- Concurrent processing queue manages HTML fetching
-- Retry logic handles failed attempts
-
-2. HTML Processing -> Content Organization
-- Processed HTML is transformed to markdown
-- Output paths are generated based on URL structure
-- Content is either packed or distributed based on mode
-
-The build system embeds version and build metadata for traceability, ensuring each deployment can be traced to its source state.
+To read the full codebase, run `npx repomix -o llms.txt .` and then read `llms.txt`
 
 $END$
 </file>
@@ -1973,11 +1545,650 @@ mod tests {
 }
 </file>
 
+<file path=".cursorrules">
+# https://github.com/twardoch/twars-url2md
+
+## 1. Project Overview
+
+`twars-url2md` is a Rust CLI application that downloads URLs and converts them to clean, readable Markdown files. It can extract URLs from various text formats and process them concurrently.
+
+## 2. Commands
+
+### 2.1. Development
+```bash
+# Run tests
+cargo test --all-features
+
+# Format code
+cargo fmt
+
+# Run linter
+cargo clippy --all-targets --all-features
+
+# Build release binary
+cargo build --release
+
+# Run with arguments
+cargo run -- [OPTIONS]
+```
+
+### 2.2. Publishing
+```bash
+# Verify package before publishing
+cargo package
+
+# Publish to crates.io
+cargo publish
+```
+
+## 3. Architecture
+
+The codebase follows a modular design with clear separation of concerns:
+
+- `src/main.rs` - Entry point with panic handling wrapper
+- `src/lib.rs` - Core processing logic and orchestration
+- `src/cli.rs` - Command-line interface using Clap
+- `src/url.rs` - URL extraction and validation logic
+- `src/html.rs` - HTML fetching and cleaning using Monolith
+- `src/markdown.rs` - HTML to Markdown conversion using htmd
+
+### 3.1. Key Design Decisions
+
+1. **Panic Recovery**: The application catches panics from the Monolith library to prevent crashes during HTML processing (see `src/main.rs:10-20`).
+
+2. **Concurrent Processing**: Uses Tokio with adaptive concurrency based on available CPUs for parallel URL processing (see `src/lib.rs:107-120`).
+
+3. **Error Handling**: Uses `anyhow` for error propagation with custom error types and retry logic for network failures.
+
+4. **Output Organization**: Generates file paths based on URL structure when using `-o` option, creating a repository-like structure.
+
+## 4. Testing
+
+Run tests with `cargo test --all-features`. The test module is in `src/tests.rs` and includes unit tests for URL extraction and processing logic.
+
+## 5. Dependencies
+
+- **Async Runtime**: tokio with full features
+- **HTTP Client**: reqwest with vendored OpenSSL
+- **HTML Processing**: monolith for cleaning, htmd for Markdown conversion
+- **CLI**: clap with derive feature
+- **Utilities**: indicatif (progress bars), rayon (parallelism)
+
+## 6. Active Development
+
+See `TODO.md` for the modernization plan, which includes:
+- Migration from OpenSSL to rustls
+- Integration of structured logging with tracing
+- Enhanced error reporting
+- Performance optimizations
+
+When implementing new features, ensure compatibility with the async architecture and maintain the modular structure.
+
+# Working principles for software development
+
+## 7. When you write code (in any language)
+
+- Iterate gradually, avoiding major changes 
+- Minimize confirmations and checks
+- Preserve existing code/structure unless necessary
+- Use constants over magic numbers
+- Check for existing solutions in the codebase before starting
+- Check often the coherence of the code you’re writing with the rest of the code. 
+- Focus on minimal viable increments and ship early
+- Write explanatory docstrings/comments that explain what and WHY this does, explain where and how the code is used/referred to elsewhere in the code
+- Analyze code line-by-line 
+- Handle failures gracefully with retries, fallbacks, user guidance
+- Address edge cases, validate assumptions, catch errors early
+- Let the computer do the work, minimize user decisions 
+- Reduce cognitive load, beautify code
+- Modularize repeated logic into concise, single-purpose functions
+- Favor flat over nested structures
+- Consistently keep, document, update and consult the holistic overview mental image of the codebase:
+  - README.md (purpose and functionality) 
+  - CHANGELOG.md (past changes)
+  - TODO.md (future goals)
+  - PROGRESS.md (detailed flat task list)
+
+## 8. Use MCP tools if you can
+
+Before and during coding (if have access to tools), you should: 
+
+- consult the `context7` tool for most up-to-date software package documentation;
+- ask intelligent questions to the `deepseek/deepseek-r1-0528:free` model via the `chat_completion` tool to get additional reasoning;
+- also consult the `openai/o3` model via the `chat_completion` tool for additional reasoning and help with the task;
+- use the `sequentialthinking` tool to think about the best way to solve the task; 
+- use the `perplexity_ask` and `duckduckgo_web_search` tools to gather up-to-date information or context;
+
+## 9. Keep track of paths
+
+In each source file, maintain the up-to-date `this_file` record that shows the path of the current file relative to project root. Place the `this_file` record near the top of the file, as a comment after the shebangs, or in the YAML Markdown frontmatter. 
+
+## 10. If you write Python
+
+- PEP 8: Use consistent formatting and naming
+- Write clear, descriptive names for functions and variables
+- PEP 20: Keep code simple and explicit. Prioritize readability over cleverness
+- Use type hints in their simplest form (list, dict, | for unions)
+- PEP 257: Write clear, imperative docstrings
+- Use f-strings. Use structural pattern matching where appropriate
+- ALWAYS add "verbose" mode logugu-based logging, & debug-log
+- For CLI Python scripts, use fire & rich, and start the script with 
+
+```
+#!/usr/bin/env -S uv run -s
+# /// script
+# dependencies = ["PKG1", "PKG2"]
+# ///
+# this_file: PATH_TO_CURRENT_FILE
+```
+
+After Python changes run:
+
+```
+uzpy run .; fd -e py -x autoflake {}; fd -e py -x pyupgrade --py312-plus {}; fd -e py -x ruff check --output-format=github --fix --unsafe-fixes {}; fd -e py -x ruff format --respect-gitignore --target-version py312 {}; python -m pytest;
+```
+
+## 11. Additional guidelines
+
+Ask before extending/refactoring existing code in a way that may add complexity or break things. 
+
+When you’re finished, print "Wait, but" to go back, think & reflect, revise & improvement what you’ve done (but don’t invent functionality freely). Repeat this. But stick to the goal of "minimal viable next version". 
+
+## 12. Virtual team work
+
+Be creative, diligent, critical, relentless & funny! Lead two experts: "Ideot" for creative, unorthodox ideas, and "Critin" to critique flawed thinking and moderate for balanced discussions. The three of you shall illuminate knowledge with concise, beautiful responses, process methodically for clear answers, collaborate step-by-step, sharing thoughts and adapting. If errors are found, step back and focus on accuracy and progress.
+
+## 13. Development Guidelines
+
+- Only modify code directly relevant to the specific request. Avoid changing unrelated functionality.
+- Never replace code with placeholders like `# ... rest of the processing ...`. Always include complete code.
+- Break problems into smaller steps. Think through each step separately before implementing.
+- Always provide a complete PLAN with REASONING based on evidence from code and logs before making changes.
+- Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
+
+
+The URL-to-markdown conversion system consists of three primary business components:
+
+### 13.1. URL Processing and Content Extraction (Importance: 95)
+- Collects URLs from multiple input sources (stdin, files)
+- Validates and resolves URLs against base URLs when needed
+- Implements a robust retry mechanism for handling transient network failures
+- Processes URLs concurrently with dynamic CPU core adaptation
+- Located in `src/cli.rs` and `src/url.rs`
+
+### 13.2. HTML Processing Pipeline (Importance: 90)
+- Fetches HTML content using Monolith for specialized content extraction
+- Implements fallback mechanisms for non-HTML content
+- Handles custom HTML processing with configurable options
+- Transforms complex HTML structures into clean markdown
+- Located in `src/html.rs`
+
+### 13.3. Content Organization and Output Management (Importance: 85)
+- Creates structured output paths mirroring URL hierarchies
+- Supports packing mode for combining multiple URLs into single documents
+- Maintains original URL ordering in packed output
+- Handles both remote URLs and local file paths consistently
+- Located in `src/lib.rs` and `src/markdown.rs`
+
+### 13.4. Integration Points
+
+The system connects these components through:
+
+1. URL Collection -> HTML Processing
+- URLs are validated and normalized before processing
+- Concurrent processing queue manages HTML fetching
+- Retry logic handles failed attempts
+
+2. HTML Processing -> Content Organization
+- Processed HTML is transformed to markdown
+- Output paths are generated based on URL structure
+- Content is either packed or distributed based on mode
+
+The build system embeds version and build metadata for traceability, ensuring each deployment can be traced to its source state.
+
+To read the full codebase, run `npx repomix -o llms.txt .` and then read `llms.txt`
+
+$END$
+</file>
+
 <file path="build.rs">
 fn main() {
     built::write_built_file().expect("Failed to acquire build-time information");
     println!("cargo:rerun-if-changed=build.rs");
 }
+</file>
+
+<file path="build.sh">
+#!/bin/bash
+# this_file: build.sh
+# Build script for twars-url2md - A powerful CLI tool for converting web pages to Markdown
+
+set -euo pipefail
+
+npx repomix -o llms.txt .
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Function to print colored output
+print_status() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Function to check if command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Check prerequisites
+check_prerequisites() {
+    print_status "Checking prerequisites..."
+
+    if ! command_exists cargo; then
+        print_error "cargo is not installed. Please install Rust toolchain first."
+        exit 1
+    fi
+
+    if ! command_exists rustc; then
+        print_error "rustc is not installed. Please install Rust toolchain first."
+        exit 1
+    fi
+
+    print_success "Prerequisites check passed"
+}
+
+# Function to show help
+show_help() {
+    echo "Usage: $0 [OPTIONS]"
+    echo ""
+    echo "Build script for twars-url2md"
+    echo ""
+    echo "OPTIONS:"
+    echo "  -h, --help       Show this help message"
+    echo "  -f, --format     Format code only"
+    echo "  -l, --lint       Run linter only"
+    echo "  -t, --test       Run tests only"
+    echo "  -b, --build      Build release binary only"
+    echo "  -d, --dev        Build development binary only"
+    echo "  -c, --clean      Clean build artifacts"
+    echo "  -p, --package    Package for publishing"
+    echo "  -a, --all        Run all steps (format, lint, test, build) [default]"
+    echo "  --skip-format    Skip formatting step"
+    echo "  --skip-lint      Skip linting step"
+    echo "  --skip-test      Skip testing step"
+    echo ""
+    echo "Examples:"
+    echo "  $0                    # Run all steps"
+    echo "  $0 --format          # Format code only"
+    echo "  $0 --test            # Run tests only"
+    echo "  $0 --all --skip-test # Run all except tests"
+}
+
+# Default values
+FORMAT=false
+LINT=false
+TEST=false
+BUILD=false
+DEV_BUILD=false
+CLEAN=false
+PACKAGE=false
+ALL=true
+SKIP_FORMAT=false
+SKIP_LINT=false
+SKIP_TEST=false
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+    -h | --help)
+        show_help
+        exit 0
+        ;;
+    -f | --format)
+        FORMAT=true
+        ALL=false
+        ;;
+    -l | --lint)
+        LINT=true
+        ALL=false
+        ;;
+    -t | --test)
+        TEST=true
+        ALL=false
+        ;;
+    -b | --build)
+        BUILD=true
+        ALL=false
+        ;;
+    -d | --dev)
+        DEV_BUILD=true
+        ALL=false
+        ;;
+    -c | --clean)
+        CLEAN=true
+        ALL=false
+        ;;
+    -p | --package)
+        PACKAGE=true
+        ALL=false
+        ;;
+    -a | --all)
+        ALL=true
+        ;;
+    --skip-format)
+        SKIP_FORMAT=true
+        ;;
+    --skip-lint)
+        SKIP_LINT=true
+        ;;
+    --skip-test)
+        SKIP_TEST=true
+        ;;
+    *)
+        print_error "Unknown option: $1"
+        echo "Use --help for usage information"
+        exit 1
+        ;;
+    esac
+    shift
+done
+
+# Main execution
+main() {
+    print_status "Starting build process for twars-url2md..."
+    check_prerequisites
+
+    # Clean if requested
+    if [[ $CLEAN == true ]]; then
+        print_status "Cleaning build artifacts..."
+        cargo clean
+        print_success "Clean completed"
+        return 0
+    fi
+
+    # Package if requested
+    if [[ $PACKAGE == true ]]; then
+        print_status "Packaging for publishing..."
+        cargo package
+        print_success "Package completed"
+        return 0
+    fi
+
+    # Format code
+    if [[ ($ALL == true && $SKIP_FORMAT == false) || $FORMAT == true ]]; then
+        print_status "Formatting code..."
+        if cargo fmt -- --check >/dev/null 2>&1; then
+            print_success "Code is already formatted"
+        else
+            print_warning "Code needs formatting, applying..."
+            cargo fmt
+            print_success "Code formatting completed"
+        fi
+    fi
+
+    # Run linter
+    if [[ ($ALL == true && $SKIP_LINT == false) || $LINT == true ]]; then
+        print_status "Running linter (clippy)..."
+        cargo clippy --all-targets --all-features -- -D warnings
+        print_success "Linting completed"
+    fi
+
+    # Run tests
+    if [[ ($ALL == true && $SKIP_TEST == false) || $TEST == true ]]; then
+        print_status "Running tests..."
+        cargo test --all-features
+        print_success "Tests completed"
+    fi
+
+    # Build development binary
+    if [[ $DEV_BUILD == true ]]; then
+        print_status "Building development binary..."
+        cargo build
+        print_success "Development build completed"
+        print_status "Binary location: target/debug/twars-url2md"
+    fi
+
+    # Build release binary
+    if [[ ($ALL == true) || $BUILD == true ]]; then
+        print_status "Building release binary..."
+        cargo build --release
+        print_success "Release build completed"
+        print_status "Binary location: target/release/twars-url2md"
+
+        # Show binary info
+        if [[ -f "target/release/twars-url2md" ]]; then
+            BINARY_SIZE=$(du -h target/release/twars-url2md | cut -f1)
+            print_status "Binary size: $BINARY_SIZE"
+        fi
+    fi
+
+    print_success "Build process completed successfully!"
+}
+
+# Run main function
+main
+</file>
+
+<file path="CLAUDE.md">
+# https://github.com/twardoch/twars-url2md
+
+## 1. Project Overview
+
+`twars-url2md` is a Rust CLI application that downloads URLs and converts them to clean, readable Markdown files. It can extract URLs from various text formats and process them concurrently.
+
+## 2. Commands
+
+### 2.1. Development
+```bash
+# Run tests
+cargo test --all-features
+
+# Format code
+cargo fmt
+
+# Run linter
+cargo clippy --all-targets --all-features
+
+# Build release binary
+cargo build --release
+
+# Run with arguments
+cargo run -- [OPTIONS]
+```
+
+### 2.2. Publishing
+```bash
+# Verify package before publishing
+cargo package
+
+# Publish to crates.io
+cargo publish
+```
+
+## 3. Architecture
+
+The codebase follows a modular design with clear separation of concerns:
+
+- `src/main.rs` - Entry point with panic handling wrapper
+- `src/lib.rs` - Core processing logic and orchestration
+- `src/cli.rs` - Command-line interface using Clap
+- `src/url.rs` - URL extraction and validation logic
+- `src/html.rs` - HTML fetching and cleaning using Monolith
+- `src/markdown.rs` - HTML to Markdown conversion using htmd
+
+### 3.1. Key Design Decisions
+
+1. **Panic Recovery**: The application catches panics from the Monolith library to prevent crashes during HTML processing (see `src/main.rs:10-20`).
+
+2. **Concurrent Processing**: Uses Tokio with adaptive concurrency based on available CPUs for parallel URL processing (see `src/lib.rs:107-120`).
+
+3. **Error Handling**: Uses `anyhow` for error propagation with custom error types and retry logic for network failures.
+
+4. **Output Organization**: Generates file paths based on URL structure when using `-o` option, creating a repository-like structure.
+
+## 4. Testing
+
+Run tests with `cargo test --all-features`. The test module is in `src/tests.rs` and includes unit tests for URL extraction and processing logic.
+
+## 5. Dependencies
+
+- **Async Runtime**: tokio with full features
+- **HTTP Client**: reqwest with vendored OpenSSL
+- **HTML Processing**: monolith for cleaning, htmd for Markdown conversion
+- **CLI**: clap with derive feature
+- **Utilities**: indicatif (progress bars), rayon (parallelism)
+
+## 6. Active Development
+
+See `TODO.md` for the modernization plan, which includes:
+- Migration from OpenSSL to rustls
+- Integration of structured logging with tracing
+- Enhanced error reporting
+- Performance optimizations
+
+When implementing new features, ensure compatibility with the async architecture and maintain the modular structure.
+
+# Working principles for software development
+
+## 7. When you write code (in any language)
+
+- Iterate gradually, avoiding major changes 
+- Minimize confirmations and checks
+- Preserve existing code/structure unless necessary
+- Use constants over magic numbers
+- Check for existing solutions in the codebase before starting
+- Check often the coherence of the code you’re writing with the rest of the code. 
+- Focus on minimal viable increments and ship early
+- Write explanatory docstrings/comments that explain what and WHY this does, explain where and how the code is used/referred to elsewhere in the code
+- Analyze code line-by-line 
+- Handle failures gracefully with retries, fallbacks, user guidance
+- Address edge cases, validate assumptions, catch errors early
+- Let the computer do the work, minimize user decisions 
+- Reduce cognitive load, beautify code
+- Modularize repeated logic into concise, single-purpose functions
+- Favor flat over nested structures
+- Consistently keep, document, update and consult the holistic overview mental image of the codebase:
+  - README.md (purpose and functionality) 
+  - CHANGELOG.md (past changes)
+  - TODO.md (future goals)
+  - PROGRESS.md (detailed flat task list)
+
+## 8. Use MCP tools if you can
+
+Before and during coding (if have access to tools), you should: 
+
+- consult the `context7` tool for most up-to-date software package documentation;
+- ask intelligent questions to the `deepseek/deepseek-r1-0528:free` model via the `chat_completion` tool to get additional reasoning;
+- also consult the `openai/o3` model via the `chat_completion` tool for additional reasoning and help with the task;
+- use the `sequentialthinking` tool to think about the best way to solve the task; 
+- use the `perplexity_ask` and `duckduckgo_web_search` tools to gather up-to-date information or context;
+
+## 9. Keep track of paths
+
+In each source file, maintain the up-to-date `this_file` record that shows the path of the current file relative to project root. Place the `this_file` record near the top of the file, as a comment after the shebangs, or in the YAML Markdown frontmatter. 
+
+## 10. If you write Python
+
+- PEP 8: Use consistent formatting and naming
+- Write clear, descriptive names for functions and variables
+- PEP 20: Keep code simple and explicit. Prioritize readability over cleverness
+- Use type hints in their simplest form (list, dict, | for unions)
+- PEP 257: Write clear, imperative docstrings
+- Use f-strings. Use structural pattern matching where appropriate
+- ALWAYS add "verbose" mode logugu-based logging, & debug-log
+- For CLI Python scripts, use fire & rich, and start the script with 
+
+```
+#!/usr/bin/env -S uv run -s
+# /// script
+# dependencies = ["PKG1", "PKG2"]
+# ///
+# this_file: PATH_TO_CURRENT_FILE
+```
+
+After Python changes run:
+
+```
+uzpy run .; fd -e py -x autoflake {}; fd -e py -x pyupgrade --py312-plus {}; fd -e py -x ruff check --output-format=github --fix --unsafe-fixes {}; fd -e py -x ruff format --respect-gitignore --target-version py312 {}; python -m pytest;
+```
+
+## 11. Additional guidelines
+
+Ask before extending/refactoring existing code in a way that may add complexity or break things. 
+
+When you’re finished, print "Wait, but" to go back, think & reflect, revise & improvement what you’ve done (but don’t invent functionality freely). Repeat this. But stick to the goal of "minimal viable next version". 
+
+## 12. Virtual team work
+
+Be creative, diligent, critical, relentless & funny! Lead two experts: "Ideot" for creative, unorthodox ideas, and "Critin" to critique flawed thinking and moderate for balanced discussions. The three of you shall illuminate knowledge with concise, beautiful responses, process methodically for clear answers, collaborate step-by-step, sharing thoughts and adapting. If errors are found, step back and focus on accuracy and progress.
+
+## 13. Development Guidelines
+
+- Only modify code directly relevant to the specific request. Avoid changing unrelated functionality.
+- Never replace code with placeholders like `# ... rest of the processing ...`. Always include complete code.
+- Break problems into smaller steps. Think through each step separately before implementing.
+- Always provide a complete PLAN with REASONING based on evidence from code and logs before making changes.
+- Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
+
+
+The URL-to-markdown conversion system consists of three primary business components:
+
+### 13.1. URL Processing and Content Extraction (Importance: 95)
+- Collects URLs from multiple input sources (stdin, files)
+- Validates and resolves URLs against base URLs when needed
+- Implements a robust retry mechanism for handling transient network failures
+- Processes URLs concurrently with dynamic CPU core adaptation
+- Located in `src/cli.rs` and `src/url.rs`
+
+### 13.2. HTML Processing Pipeline (Importance: 90)
+- Fetches HTML content using Monolith for specialized content extraction
+- Implements fallback mechanisms for non-HTML content
+- Handles custom HTML processing with configurable options
+- Transforms complex HTML structures into clean markdown
+- Located in `src/html.rs`
+
+### 13.3. Content Organization and Output Management (Importance: 85)
+- Creates structured output paths mirroring URL hierarchies
+- Supports packing mode for combining multiple URLs into single documents
+- Maintains original URL ordering in packed output
+- Handles both remote URLs and local file paths consistently
+- Located in `src/lib.rs` and `src/markdown.rs`
+
+### 13.4. Integration Points
+
+The system connects these components through:
+
+1. URL Collection -> HTML Processing
+- URLs are validated and normalized before processing
+- Concurrent processing queue manages HTML fetching
+- Retry logic handles failed attempts
+
+2. HTML Processing -> Content Organization
+- Processed HTML is transformed to markdown
+- Output paths are generated based on URL structure
+- Content is either packed or distributed based on mode
+
+The build system embeds version and build metadata for traceability, ensuring each deployment can be traced to its source state.
+
+To read the full codebase, run `npx repomix -o llms.txt .` and then read `llms.txt`
+
+$END$
 </file>
 
 <file path="TODO.md">
@@ -2641,6 +2852,265 @@ jobs:
           CRATES_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 </file>
 
+<file path="src/cli.rs">
+use anyhow::Result;
+use clap::Parser;
+use std::fs;
+use std::io::{self, Read};
+use std::path::PathBuf;
+use tokio;
+
+use crate::url::extract_urls_from_text;
+
+/// Command-line interface for URL processing
+#[derive(Parser)]
+#[command(
+    name = "twars-url2md",
+    author = "Adam Twardoch",
+    version = env!("CARGO_PKG_VERSION"),
+    about = "Convert web pages to clean Markdown format while preserving content structure",
+    long_about = "\
+A powerful CLI tool that fetches web pages and converts them to clean Markdown format \
+using Monolith for content extraction and htmd for conversion"
+)]
+pub struct Cli {
+    /// Input file to process
+    #[arg(short, long)]
+    input: Option<PathBuf>,
+
+    /// Output directory for markdown files
+    #[arg(short, long)]
+    output: Option<PathBuf>,
+
+    /// Read from stdin
+    #[arg(long)]
+    stdin: bool,
+
+    /// Base URL for resolving relative URLs
+    #[arg(long)]
+    base_url: Option<String>,
+
+    /// Output file to pack all markdown files together
+    #[arg(short = 'p', long)]
+    pack: Option<PathBuf>,
+
+    /// Enable verbose output
+    #[arg(short, long)]
+    verbose: bool,
+}
+
+impl Cli {
+    /// Parse command-line arguments with custom error handling
+    pub fn parse_args() -> Result<Self> {
+        let args: Vec<_> = std::env::args().collect();
+        let cli = if args.iter().any(|arg| arg == "-v" || arg == "--verbose") {
+            Self::parse()
+        } else {
+            match Self::try_parse() {
+                Ok(cli) => {
+                    // Add validation for input arguments
+                    if !cli.stdin && cli.input.is_none() {
+                        eprintln!("Error: Either --stdin or --input must be specified\n");
+                        eprintln!("Usage examples:");
+                        eprintln!("  twars-url2md --input urls.txt --output ./markdown");
+                        eprintln!("  echo \"https://example.com\" | twars-url2md --stdin");
+                        eprintln!("  twars-url2md --input urls.txt --pack combined.md\n");
+                        eprintln!("Run 'twars-url2md --help' for full usage information");
+                        std::process::exit(1);
+                    }
+                    cli
+                }
+                Err(err) => {
+                    if err.kind() == clap::error::ErrorKind::DisplayHelp
+                        || err.kind() == clap::error::ErrorKind::DisplayVersion
+                    {
+                        // For help and version, print the error (which contains the help/version text)
+                        err.print().expect("Failed to print help/version");
+                        std::process::exit(0);
+                    }
+                    // For other errors, print a concise message.
+                    // Clap's default error messages can be verbose.
+                    eprintln!(
+                        "Error: {}",
+                        err.render()
+                            .to_string()
+                            .lines()
+                            .next()
+                            .unwrap_or("Invalid command line arguments.")
+                    );
+                    eprintln!("Run with --help for usage information.");
+                    std::process::exit(1);
+                }
+            }
+        };
+
+        Ok(cli)
+    }
+
+    /// Collect URLs from all input sources
+    pub fn collect_urls(&self) -> io::Result<Vec<String>> {
+        tracing::debug!("Collecting URLs from input sources...");
+        // Get content from stdin or file
+        let content = if self.stdin {
+            tracing::info!("Reading URLs from stdin.");
+            let mut buffer = String::new();
+            io::stdin().read_to_string(&mut buffer)?;
+            buffer
+        } else if let Some(input_path) = &self.input {
+            tracing::info!("Reading URLs from file: {}", input_path.display());
+            fs::read_to_string(input_path)?
+        } else {
+            // This case should be caught by parse_args validation
+            tracing::error!("Neither stdin nor input file specified during URL collection.");
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Internal error: Neither stdin nor input file specified, but validation passed.",
+            ));
+        };
+
+        // Extract URLs from content
+        let urls = extract_urls_from_text(&content, self.base_url.as_deref());
+        tracing::debug!("Extracted {} URLs from content.", urls.len());
+        Ok(urls)
+    }
+
+    /// Create configuration from CLI arguments
+    pub fn create_config(&self) -> crate::Config {
+        crate::Config {
+            verbose: self.verbose,
+            max_retries: 2,
+            output_base: self.output.clone().unwrap_or_else(|| PathBuf::from(".")),
+            single_file: self.input.is_none(),
+            has_output: self.output.is_some(),
+            pack_file: self.pack.clone(),
+        }
+    }
+}
+
+pub async fn run() -> io::Result<()> {
+    // Use unwrap() instead of ? because parse_args returns anyhow::Result
+    // which is not compatible with io::Result
+    let cli = match Cli::parse_args() {
+        Ok(cli) => cli,
+        Err(e) => {
+            eprintln!("Error parsing arguments: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    // Validate input options
+    if cli.stdin && cli.input.is_some() {
+        eprintln!("Error: Cannot use both --stdin and --input");
+        std::process::exit(1);
+    }
+
+    // Extract URLs from content
+    let urls = cli.collect_urls()?;
+
+    // Process output
+    if let Some(output_dir) = cli.output.clone() {
+        fs::create_dir_all(&output_dir)?;
+        for url in urls {
+            // Create markdown file for each URL
+            let mut file_path = output_dir.clone();
+            file_path.push(format!("{}.md", url_to_filename(&url)));
+            tokio::fs::write(file_path, format!("# {}\n\n{}\n", url, url)).await?;
+        }
+    } else {
+        // Print URLs to stdout if no output directory specified
+        for url in urls {
+            println!("{}", url);
+        }
+    }
+
+    Ok(())
+}
+
+fn url_to_filename(url: &str) -> String {
+    // Convert URL to a valid filename
+    let mut filename = url
+        .replace(
+            [
+                ':', '/', '?', '#', '[', ']', '@', '!', '$', '&', '\'', '(', ')', '*', '+', ',',
+                ';', '=',
+            ],
+            "_",
+        )
+        .replace([' ', '\t', '\n', '\r'], "");
+
+    // Ensure the filename is not too long
+    if filename.len() > 200 {
+        filename.truncate(200);
+    }
+
+    filename
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_collect_urls_from_text_file() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("sample_urls.txt");
+        let test_content = "\
+            https://example.com/\n\
+            http://test.org/\n\
+            https://rust-lang.org/\n\
+            https://github.com/example/repo\n\
+            http://blog.example.com/post/123\n\
+            https://docs.example.com/guide#section\n\
+            ftp://invalid.com\n\
+            not-a-url.com\n\
+            www.example.com";
+
+        // Create test file with sample URLs
+        fs::write(&test_file, test_content)?;
+
+        // Test file input
+        let cli = Cli {
+            input: Some(test_file),
+            output: None,
+            stdin: false,
+            base_url: None,
+            pack: None,
+            verbose: false,
+        };
+
+        let urls = cli.collect_urls()?;
+        println!("Found URLs: {:?}", urls);
+        verify_urls(&urls);
+
+        Ok(())
+    }
+
+    fn verify_urls(urls: &[String]) {
+        println!("Found URLs: {:?}", urls);
+
+        // Test for basic URLs (without trailing slashes for bare domains)
+        assert!(urls.iter().any(|u| u == "https://example.com"));
+        assert!(urls.iter().any(|u| u == "http://test.org"));
+        assert!(urls.iter().any(|u| u == "https://rust-lang.org"));
+
+        // Test for URLs with paths and fragments
+        assert!(urls.iter().any(|u| u == "https://github.com/example/repo"));
+        assert!(urls.iter().any(|u| u == "http://blog.example.com/post/123"));
+        assert!(urls
+            .iter()
+            .any(|u| u == "https://docs.example.com/guide#section"));
+
+        // Make sure invalid URLs are not included
+        assert!(!urls.iter().any(|u| u.starts_with("ftp://")));
+        assert!(!urls.iter().any(|u| u == "not-a-url.com"));
+        assert!(!urls.iter().any(|u| u == "www.example.com"));
+
+        assert_eq!(urls.len(), 6, "Expected exactly 6 valid URLs");
+    }
+}
+</file>
+
 <file path="src/url.rs">
 use anyhow::{Context, Result};
 use html5ever::parse_document;
@@ -2678,9 +3148,8 @@ pub fn create_output_path(url: &Url, base_dir: &Path) -> Result<PathBuf> {
     }
 
     // Ensure directories exist on disk
-    std::fs::create_dir_all(&dir_path_full).with_context(|| {
-        format!("Failed to create directory: {}", dir_path_full.display())
-    })?;
+    std::fs::create_dir_all(&dir_path_full)
+        .with_context(|| format!("Failed to create directory: {}", dir_path_full.display()))?;
 
     // Determine filename
     let filename = if url.path().ends_with('/') || path_segments.is_empty() {
@@ -2933,265 +3402,6 @@ mod tests {
         assert!(path.to_string_lossy().ends_with(".md"));
 
         Ok(())
-    }
-}
-</file>
-
-<file path="src/cli.rs">
-use anyhow::Result;
-use clap::Parser;
-use std::fs;
-use std::io::{self, Read};
-use std::path::PathBuf;
-use tokio;
-
-use crate::url::extract_urls_from_text;
-
-/// Command-line interface for URL processing
-#[derive(Parser)]
-#[command(
-    name = "twars-url2md",
-    author = "Adam Twardoch",
-    version = env!("CARGO_PKG_VERSION"),
-    about = "Convert web pages to clean Markdown format while preserving content structure",
-    long_about = "\
-A powerful CLI tool that fetches web pages and converts them to clean Markdown format \
-using Monolith for content extraction and htmd for conversion"
-)]
-pub struct Cli {
-    /// Input file to process
-    #[arg(short, long)]
-    input: Option<PathBuf>,
-
-    /// Output directory for markdown files
-    #[arg(short, long)]
-    output: Option<PathBuf>,
-
-    /// Read from stdin
-    #[arg(long)]
-    stdin: bool,
-
-    /// Base URL for resolving relative URLs
-    #[arg(long)]
-    base_url: Option<String>,
-
-    /// Output file to pack all markdown files together
-    #[arg(short = 'p', long)]
-    pack: Option<PathBuf>,
-
-    /// Enable verbose output
-    #[arg(short, long)]
-    verbose: bool,
-}
-
-impl Cli {
-    /// Parse command-line arguments with custom error handling
-    pub fn parse_args() -> Result<Self> {
-        let args: Vec<_> = std::env::args().collect();
-        let cli = if args.iter().any(|arg| arg == "-v" || arg == "--verbose") {
-            Self::parse()
-        } else {
-            match Self::try_parse() {
-                Ok(cli) => {
-                    // Add validation for input arguments
-                    if !cli.stdin && cli.input.is_none() {
-                        eprintln!("Error: Either --stdin or --input must be specified\n");
-                        eprintln!("Usage examples:");
-                        eprintln!("  twars-url2md --input urls.txt --output ./markdown");
-                        eprintln!("  echo \"https://example.com\" | twars-url2md --stdin");
-                        eprintln!("  twars-url2md --input urls.txt --pack combined.md\n");
-                        eprintln!("Run 'twars-url2md --help' for full usage information");
-                        std::process::exit(1);
-                    }
-                    cli
-                }
-                Err(err) => {
-                    if err.kind() == clap::error::ErrorKind::DisplayHelp
-                        || err.kind() == clap::error::ErrorKind::DisplayVersion
-                    {
-                        // For help and version, print the error (which contains the help/version text)
-                        err.print().expect("Failed to print help/version");
-                        std::process::exit(0);
-                    }
-                    // For other errors, print a concise message.
-                    // Clap's default error messages can be verbose.
-                    eprintln!(
-                        "Error: {}",
-                        err.render()
-                            .to_string()
-                            .lines()
-                            .next()
-                            .unwrap_or("Invalid command line arguments.")
-                    );
-                    eprintln!("Run with --help for usage information.");
-                    std::process::exit(1);
-                }
-            }
-        };
-
-        Ok(cli)
-    }
-
-    /// Collect URLs from all input sources
-    pub fn collect_urls(&self) -> io::Result<Vec<String>> {
-        tracing::debug!("Collecting URLs from input sources...");
-        // Get content from stdin or file
-        let content = if self.stdin {
-            tracing::info!("Reading URLs from stdin.");
-            let mut buffer = String::new();
-            io::stdin().read_to_string(&mut buffer)?;
-            buffer
-        } else if let Some(input_path) = &self.input {
-            tracing::info!("Reading URLs from file: {}", input_path.display());
-            fs::read_to_string(input_path)?
-        } else {
-            // This case should be caught by parse_args validation
-            tracing::error!("Neither stdin nor input file specified during URL collection.");
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Internal error: Neither stdin nor input file specified, but validation passed.",
-            ));
-        };
-
-        // Extract URLs from content
-        let urls = extract_urls_from_text(&content, self.base_url.as_deref());
-        tracing::debug!("Extracted {} URLs from content.", urls.len());
-        Ok(urls)
-    }
-
-    /// Create configuration from CLI arguments
-    pub fn create_config(&self) -> crate::Config {
-        crate::Config {
-            verbose: self.verbose,
-            max_retries: 2,
-            output_base: self.output.clone().unwrap_or_else(|| PathBuf::from(".")),
-            single_file: self.input.is_none(),
-            has_output: self.output.is_some(),
-            pack_file: self.pack.clone(),
-        }
-    }
-}
-
-pub async fn run() -> io::Result<()> {
-    // Use unwrap() instead of ? because parse_args returns anyhow::Result
-    // which is not compatible with io::Result
-    let cli = match Cli::parse_args() {
-        Ok(cli) => cli,
-        Err(e) => {
-            eprintln!("Error parsing arguments: {}", e);
-            std::process::exit(1);
-        }
-    };
-
-    // Validate input options
-    if cli.stdin && cli.input.is_some() {
-        eprintln!("Error: Cannot use both --stdin and --input");
-        std::process::exit(1);
-    }
-
-    // Extract URLs from content
-    let urls = cli.collect_urls()?;
-
-    // Process output
-    if let Some(output_dir) = cli.output.clone() {
-        fs::create_dir_all(&output_dir)?;
-        for url in urls {
-            // Create markdown file for each URL
-            let mut file_path = output_dir.clone();
-            file_path.push(format!("{}.md", url_to_filename(&url)));
-            tokio::fs::write(file_path, format!("# {}\n\n{}\n", url, url)).await?;
-        }
-    } else {
-        // Print URLs to stdout if no output directory specified
-        for url in urls {
-            println!("{}", url);
-        }
-    }
-
-    Ok(())
-}
-
-fn url_to_filename(url: &str) -> String {
-    // Convert URL to a valid filename
-    let mut filename = url
-        .replace(
-            [
-                ':', '/', '?', '#', '[', ']', '@', '!', '$', '&', '\'', '(', ')', '*', '+', ',',
-                ';', '=',
-            ],
-            "_",
-        )
-        .replace([' ', '\t', '\n', '\r'], "");
-
-    // Ensure the filename is not too long
-    if filename.len() > 200 {
-        filename.truncate(200);
-    }
-
-    filename
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tempfile::tempdir;
-
-    #[test]
-    fn test_collect_urls_from_text_file() -> Result<()> {
-        let temp_dir = tempdir()?;
-        let test_file = temp_dir.path().join("sample_urls.txt");
-        let test_content = "\
-            https://example.com/\n\
-            http://test.org/\n\
-            https://rust-lang.org/\n\
-            https://github.com/example/repo\n\
-            http://blog.example.com/post/123\n\
-            https://docs.example.com/guide#section\n\
-            ftp://invalid.com\n\
-            not-a-url.com\n\
-            www.example.com";
-
-        // Create test file with sample URLs
-        fs::write(&test_file, test_content)?;
-
-        // Test file input
-        let cli = Cli {
-            input: Some(test_file),
-            output: None,
-            stdin: false,
-            base_url: None,
-            pack: None,
-            verbose: false,
-        };
-
-        let urls = cli.collect_urls()?;
-        println!("Found URLs: {:?}", urls);
-        verify_urls(&urls);
-
-        Ok(())
-    }
-
-    fn verify_urls(urls: &[String]) {
-        println!("Found URLs: {:?}", urls);
-
-        // Test for basic URLs (with trailing slashes)
-        assert!(urls.iter().any(|u| u == "https://example.com/"));
-        assert!(urls.iter().any(|u| u == "http://test.org/"));
-        assert!(urls.iter().any(|u| u == "https://rust-lang.org/"));
-
-        // Test for URLs with paths and fragments
-        assert!(urls.iter().any(|u| u == "https://github.com/example/repo"));
-        assert!(urls.iter().any(|u| u == "http://blog.example.com/post/123"));
-        assert!(urls
-            .iter()
-            .any(|u| u == "https://docs.example.com/guide#section"));
-
-        // Make sure invalid URLs are not included
-        assert!(!urls.iter().any(|u| u.starts_with("ftp://")));
-        assert!(!urls.iter().any(|u| u == "not-a-url.com"));
-        assert!(!urls.iter().any(|u| u == "www.example.com"));
-
-        assert_eq!(urls.len(), 6, "Expected exactly 6 valid URLs");
     }
 }
 </file>
@@ -3718,19 +3928,17 @@ fn create_http_client() -> Result<Client> {
         "Accept-Language",
         HeaderValue::from_static("en-US,en;q=0.9"),
     );
-    headers.insert(
-        "Accept-Encoding",
-        HeaderValue::from_static("gzip, deflate, br"),
-    );
 
     Client::builder()
         .default_headers(headers)
         .pool_idle_timeout(Duration::from_secs(30))
         .pool_max_idle_per_host(10)
         .tcp_keepalive(Duration::from_secs(30))
-        .timeout(Duration::from_secs(60)) // Increase overall timeout
-        .connect_timeout(Duration::from_secs(20)) // Increase connection timeout
-        .http1_only() // Force HTTP/1.1 instead of HTTP/2
+        .timeout(Duration::from_secs(60)) // Overall request deadline (headers + body)
+        .connect_timeout(Duration::from_secs(20)) // TCP/TLS handshake deadline
+        // Allow HTTP/2 (default). Some CDNs only serve large pages efficiently over h2
+        // and may stall or throttle h1 connections, which manifested as 30 s time-outs
+        // on `helpx.adobe.com`.
         .build()
         .context("Failed to create HTTP client")
 }

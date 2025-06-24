@@ -234,10 +234,10 @@ mod tests {
     fn verify_urls(urls: &[String]) {
         println!("Found URLs: {:?}", urls);
 
-        // Test for basic URLs (with trailing slashes)
-        assert!(urls.iter().any(|u| u == "https://example.com/"));
-        assert!(urls.iter().any(|u| u == "http://test.org/"));
-        assert!(urls.iter().any(|u| u == "https://rust-lang.org/"));
+        // Test for basic URLs (without trailing slashes for bare domains)
+        assert!(urls.iter().any(|u| u == "https://example.com"));
+        assert!(urls.iter().any(|u| u == "http://test.org"));
+        assert!(urls.iter().any(|u| u == "https://rust-lang.org"));
 
         // Test for URLs with paths and fragments
         assert!(urls.iter().any(|u| u == "https://github.com/example/repo"));
