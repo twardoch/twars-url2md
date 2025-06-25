@@ -386,7 +386,7 @@ mod url_validation_tests {
         // Test that bare domain URLs have trailing slash removed
         let text = "https://example.com/ https://example.com";
         let urls = extract_urls_from_text(text, None);
-        
+
         // Both should normalize to the same URL without trailing slash
         assert_eq!(urls.len(), 1);
         assert_eq!(urls[0], "https://example.com");
@@ -485,5 +485,63 @@ mod url_validation_tests {
             "Returned URLs should be well-formed: {:?}",
             urls
         );
+    }
+
+    #[test]
+    fn test_url_encoding() {
+        let text = r#"
+            https://example.com/path%20with%20spaces
+            https://example.com/unicode/%E2%9C%93
+            https://example.com/special/%2Fslash%2F
+        "#;
+
+        let urls = extract_urls_from_text(text, None);
+        assert_eq!(urls.len(), 3);
+        // URL-encoded characters should be preserved
+        assert!(urls.iter().any(|u| u.contains("%20")));
+        assert!(urls.iter().any(|u| u.contains("%E2%9C%93")));
+        assert!(urls.iter().any(|u| u.contains("%2F")));
+    }
+
+    #[test]
+    fn test_edge_case_urls() {
+        let text = r#"
+            https://
+            http://a
+            https://example.com:
+            https://example.com//double//slash
+            https://example.com/./dot/./path
+            https://example.com/../parent/../path
+        "#;
+
+        let urls = extract_urls_from_text(text, None);
+        // Some may be valid, some not - verify we handle them gracefully
+        for url in &urls {
+            assert!(url.starts_with("http://") || url.starts_with("https://"));
+        }
+    }
+
+    #[test]
+    fn test_very_long_urls() {
+        let long_path = "a/".repeat(100);
+        let text = format!("https://example.com/{}", long_path);
+
+        let urls = extract_urls_from_text(&text, None);
+        assert_eq!(urls.len(), 1);
+        assert!(urls[0].len() > 200);
+    }
+
+    #[test]
+    fn test_urls_with_unicode() {
+        let text = r#"
+            https://example.com/测试
+            https://example.com/café
+            https://example.com/🦀
+            https://example.com/путь/файл
+        "#;
+
+        let urls = extract_urls_from_text(text, None);
+        // URLs with unicode should be found (though they may be encoded)
+        assert!(!urls.is_empty());
     }
 }

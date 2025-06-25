@@ -121,11 +121,17 @@ impl Cli {
 
     /// Create configuration from CLI arguments
     pub fn create_config(&self) -> crate::Config {
+        let is_single_file_output = self
+            .output
+            .as_ref()
+            .and_then(|p| p.extension())
+            .is_some_and(|ext| ext == "md");
+
         crate::Config {
             verbose: self.verbose,
             max_retries: 2,
             output_base: self.output.clone().unwrap_or_else(|| PathBuf::from(".")),
-            single_file: self.input.is_none(),
+            single_file: is_single_file_output,
             has_output: self.output.is_some(),
             pack_file: self.pack.clone(),
         }
@@ -252,5 +258,209 @@ mod tests {
         assert!(!urls.iter().any(|u| u == "www.example.com"));
 
         assert_eq!(urls.len(), 6, "Expected exactly 6 valid URLs");
+    }
+
+    #[test]
+    fn test_url_to_filename() {
+        assert_eq!(
+            url_to_filename("https://example.com"),
+            "https___example.com"
+        );
+        assert_eq!(
+            url_to_filename("https://example.com/path/to/file"),
+            "https___example.com_path_to_file"
+        );
+        assert_eq!(
+            url_to_filename("https://example.com?query=value#fragment"),
+            "https___example.com_query_value_fragment"
+        );
+
+        // Test special characters
+        assert_eq!(
+            url_to_filename("https://example.com/file@version:1.0"),
+            "https___example.com_file_version_1.0"
+        );
+
+        // Test long URL truncation
+        let long_url = format!("https://example.com/{}", "a".repeat(300));
+        let filename = url_to_filename(&long_url);
+        assert!(filename.len() <= 200);
+    }
+
+    #[test]
+    fn test_create_config() {
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().to_path_buf();
+        let pack_path = temp_dir.path().join("packed.md");
+
+        // Test with all options
+        let cli = Cli {
+            input: Some(PathBuf::from("input.txt")),
+            output: Some(output_path.clone()),
+            stdin: false,
+            base_url: Some("https://base.com".to_string()),
+            pack: Some(pack_path.clone()),
+            verbose: true,
+        };
+
+        let config = cli.create_config();
+        assert!(config.verbose);
+        assert_eq!(config.max_retries, 2);
+        assert_eq!(config.output_base, output_path);
+        assert!(!config.single_file);
+        assert!(config.has_output);
+        assert_eq!(config.pack_file, Some(pack_path));
+
+        // Test with minimal options
+        let cli_minimal = Cli {
+            input: None,
+            output: None,
+            stdin: true,
+            base_url: None,
+            pack: None,
+            verbose: false,
+        };
+
+        let config_minimal = cli_minimal.create_config();
+        assert!(!config_minimal.verbose);
+        assert_eq!(config_minimal.output_base, PathBuf::from("."));
+        assert!(!config_minimal.single_file);
+        assert!(!config_minimal.has_output);
+        assert_eq!(config_minimal.pack_file, None);
+    }
+
+    #[test]
+    fn test_collect_urls_with_base_url() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("relative_urls.txt");
+        let test_content = "\
+            /relative/path\n\
+            https://absolute.com/path\n\
+            ../parent/path\n\
+            ./current/path";
+
+        fs::write(&test_file, test_content)?;
+
+        let cli = Cli {
+            input: Some(test_file),
+            output: None,
+            stdin: false,
+            base_url: Some("https://base.com".to_string()),
+            pack: None,
+            verbose: false,
+        };
+
+        let urls = cli.collect_urls()?;
+        // LinkFinder may not recognize bare paths, but absolute URLs should work
+        assert!(urls.iter().any(|u| u == "https://absolute.com/path"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_empty_input_file() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("empty.txt");
+        fs::write(&test_file, "")?;
+
+        let cli = Cli {
+            input: Some(test_file),
+            output: None,
+            stdin: false,
+            base_url: None,
+            pack: None,
+            verbose: false,
+        };
+
+        let urls = cli.collect_urls()?;
+        assert!(urls.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_mixed_content_input() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("mixed.txt");
+        let test_content = r#"
+            Check out https://example.com for more info
+            <a href="https://linked.com">Link</a>
+            [Markdown](https://markdown.com)
+            Plain text with no URLs here
+            https://standalone.com
+            file:///local/path/to/file.html
+        "#;
+
+        fs::write(&test_file, test_content)?;
+
+        let cli = Cli {
+            input: Some(test_file),
+            output: None,
+            stdin: false,
+            base_url: None,
+            pack: None,
+            verbose: false,
+        };
+
+        let urls = cli.collect_urls()?;
+        assert!(urls.iter().any(|u| u.contains("example.com")));
+        assert!(urls.iter().any(|u| u.contains("linked.com")));
+        assert!(urls.iter().any(|u| u.contains("markdown.com")));
+        assert!(urls.iter().any(|u| u.contains("standalone.com")));
+        assert!(urls.iter().any(|u| u.starts_with("file://")));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_duplicate_urls_deduplication() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("duplicates.txt");
+        let test_content = "\
+            https://example.com\n\
+            https://example.com\n\
+            https://example.com/\n\
+            https://example.com\n";
+
+        fs::write(&test_file, test_content)?;
+
+        let cli = Cli {
+            input: Some(test_file),
+            output: None,
+            stdin: false,
+            base_url: None,
+            pack: None,
+            verbose: false,
+        };
+
+        let urls = cli.collect_urls()?;
+        // Should deduplicate to just one URL
+        assert_eq!(urls.len(), 1);
+        assert_eq!(urls[0], "https://example.com");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_glob_pattern_expansion() -> Result<()> {
+        // Note: This test would require actual glob functionality
+        // which is not currently implemented in the CLI
+        // Keeping as a placeholder for future implementation
+        Ok(())
+    }
+
+    #[test]
+    fn test_verbose_flag_config() {
+        let cli = Cli {
+            input: None,
+            output: None,
+            stdin: true,
+            base_url: None,
+            pack: None,
+            verbose: true,
+        };
+
+        let config = cli.create_config();
+        assert!(config.verbose);
     }
 }

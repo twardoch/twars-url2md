@@ -1,0 +1,15 @@
+Check out these resources:
+
+1. The Rust Programming Language: https://rust-lang.org
+2. <a href="https://github.com">GitHub</a>
+3. [Crates.io](https://crates.io) - The Rust package registry
+4. Also see: http://example.com/docs
+
+Some invalid URLs that should be ignored:
+- ftp://oldserver.com
+- javascript:alert('test')
+- mailto:test@example.com
+
+<p>HTML content with <a href="https://embedded-link.com">embedded link</a></p>
+
+Local file: /usr/local/share/doc/test.html

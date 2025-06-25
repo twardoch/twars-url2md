@@ -236,4 +236,152 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_nested_lists() -> Result<()> {
+        let html = r#"
+            <ul>
+                <li>Top level 1
+                    <ul>
+                        <li>Nested 1.1</li>
+                        <li>Nested 1.2</li>
+                    </ul>
+                </li>
+                <li>Top level 2
+                    <ol>
+                        <li>Nested 2.1</li>
+                        <li>Nested 2.2</li>
+                    </ol>
+                </li>
+            </ul>
+        "#;
+
+        let markdown = convert_html_to_markdown(html)?;
+        assert!(markdown.contains("Top level 1"));
+        assert!(markdown.contains("Top level 2"));
+        assert!(markdown.contains("Nested 1.1"));
+        assert!(markdown.contains("Nested 2.2"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_malformed_html() -> Result<()> {
+        // Test various malformed HTML inputs
+        let test_cases = vec![
+            "<p>Unclosed paragraph",
+            "<div><p>Mismatched tags</div></p>",
+            "Plain text with no tags",
+            "<p>Text with <unknown>unknown tag</unknown></p>",
+            "<!DOCTYPE html><p>With doctype</p>",
+        ];
+
+        for html in test_cases {
+            // Should not panic on malformed HTML
+            let result = convert_html_to_markdown(html);
+            assert!(result.is_ok(), "Failed to handle HTML: {}", html);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_unicode_content() -> Result<()> {
+        let html = r#"
+            <h1>Unicode 测试 🦀</h1>
+            <p>Greek: αβγδε</p>
+            <p>Russian: Привет мир</p>
+            <p>Emoji: 🚀 🌟 ✨</p>
+            <p>Math: ∑ ∏ ∞ ≠</p>
+        "#;
+
+        let markdown = convert_html_to_markdown(html)?;
+        assert!(markdown.contains("测试"));
+        assert!(markdown.contains("🦀"));
+        assert!(markdown.contains("αβγδε"));
+        assert!(markdown.contains("Привет"));
+        assert!(markdown.contains("🚀"));
+        assert!(markdown.contains("∑"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_complex_table() -> Result<()> {
+        let html = r#"
+            <table>
+                <thead>
+                    <tr>
+                        <th colspan="2">Merged Header</th>
+                        <th>Normal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td rowspan="2">Tall Cell</td>
+                        <td>A1</td>
+                        <td>B1</td>
+                    </tr>
+                    <tr>
+                        <td>A2</td>
+                        <td>B2</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td>Footer 1</td>
+                        <td>Footer 2</td>
+                        <td>Footer 3</td>
+                    </tr>
+                </tfoot>
+            </table>
+        "#;
+
+        let markdown = convert_html_to_markdown(html)?;
+        // Complex tables may not preserve structure perfectly, but content should be there
+        assert!(markdown.contains("Merged Header"));
+        assert!(markdown.contains("Tall Cell"));
+        assert!(markdown.contains("Footer"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_html_entities() -> Result<()> {
+        let html = r#"
+            <p>&nbsp;&nbsp;&nbsp;Indented with nbsp</p>
+            <p>Copyright &copy; 2024</p>
+            <p>Price: &pound;100 or &euro;120</p>
+            <p>Math: &alpha; + &beta; = &gamma;</p>
+        "#;
+
+        let markdown = convert_html_to_markdown(html)?;
+        // Entities should be converted to their unicode equivalents
+        assert!(markdown.contains("Indented"));
+        assert!(markdown.contains("©") || markdown.contains("Copyright"));
+        assert!(markdown.contains("£") || markdown.contains("€") || markdown.contains("100"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_preserve_links_in_nested_elements() -> Result<()> {
+        let html = r#"
+            <p>Check out <strong><a href="https://example.com">this link</a></strong> for more.</p>
+            <div>
+                <span>
+                    <a href="https://nested.com">
+                        <em>Deeply</em> <strong>nested</strong> link
+                    </a>
+                </span>
+            </div>
+        "#;
+
+        let markdown = convert_html_to_markdown(html)?;
+        assert!(markdown.contains("https://example.com"));
+        assert!(markdown.contains("https://nested.com"));
+        assert!(markdown.contains("this link"));
+
+        Ok(())
+    }
 }

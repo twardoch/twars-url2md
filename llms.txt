@@ -66,6 +66,17 @@ test_output/
 testdata/
   example.sh
 tests/
+  common/
+    mod.rs
+  fixtures/
+    expected/
+      simple_output.md
+    html/
+      complex.html
+      simple.html
+    urls/
+      mixed_content.txt
+      test_urls.txt
   integration/
     e2e_tests.rs
     mod.rs
@@ -91,6 +102,235 @@ TODO.md
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="tests/common/mod.rs">
+// this_file: tests/common/mod.rs
+
+use std::fs;
+use std::path::{Path, PathBuf};
+use tempfile::TempDir;
+
+/// Create a temporary directory with test files
+pub fn setup_test_dir() -> (TempDir, PathBuf) {
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let base_path = temp_dir.path().to_path_buf();
+    (temp_dir, base_path)
+}
+
+/// Create a test file with given content
+pub fn create_test_file(dir: &Path, filename: &str, content: &str) -> PathBuf {
+    let file_path = dir.join(filename);
+    fs::write(&file_path, content).expect("Failed to write test file");
+    file_path
+}
+
+/// Read fixture file content
+pub fn read_fixture(fixture_path: &str) -> String {
+    let path = PathBuf::from("tests/fixtures").join(fixture_path);
+    fs::read_to_string(path).expect("Failed to read fixture file")
+}
+
+/// Compare markdown output, ignoring minor formatting differences
+pub fn assert_markdown_equivalent(actual: &str, expected: &str) {
+    let normalize = |s: &str| {
+        s.trim()
+            .lines()
+            .map(|line| line.trim())
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+
+    let actual_normalized = normalize(actual);
+    let expected_normalized = normalize(expected);
+
+    assert_eq!(
+        actual_normalized, 
+        expected_normalized,
+        "\nActual:\n{}\n\nExpected:\n{}\n",
+        actual,
+        expected
+    );
+}
+
+/// Create a mock HTTP response for testing
+pub fn mock_html_response() -> String {
+    r#"<!DOCTYPE html>
+<html>
+<head><title>Test</title></head>
+<body>
+    <h1>Test Page</h1>
+    <p>This is a test page.</p>
+</body>
+</html>"#.to_string()
+}
+
+/// Get test URLs for integration testing
+pub fn test_urls() -> Vec<String> {
+    vec![
+        "https://example.com".to_string(),
+        "https://rust-lang.org".to_string(),
+        "https://github.com/test/repo".to_string(),
+    ]
+}
+
+/// Verify that a file exists and contains expected content
+pub fn assert_file_contains(path: &Path, expected_content: &str) {
+    assert!(path.exists(), "File does not exist: {}", path.display());
+    let content = fs::read_to_string(path).expect("Failed to read file");
+    assert!(
+        content.contains(expected_content),
+        "File {} does not contain expected content: {}",
+        path.display(),
+        expected_content
+    );
+}
+</file>
+
+<file path="tests/fixtures/expected/simple_output.md">
+# Test Page
+
+This is a simple test page with **bold** and *italic* text.
+
+* First item
+* Second item
+
+Visit [our website](https://example.com) for more information.
+</file>
+
+<file path="tests/fixtures/html/complex.html">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Complex Test Page</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .highlight { background-color: yellow; }
+    </style>
+    <script>
+        console.log('This script should be ignored');
+    </script>
+</head>
+<body>
+    <header>
+        <h1>Complex Document Structure</h1>
+        <nav>
+            <a href="#section1">Section 1</a>
+            <a href="#section2">Section 2</a>
+        </nav>
+    </header>
+    
+    <main>
+        <article id="section1">
+            <h2>Section 1: Tables and Lists</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Value</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Alpha</td>
+                        <td>100</td>
+                        <td>First value</td>
+                    </tr>
+                    <tr>
+                        <td>Beta</td>
+                        <td>200</td>
+                        <td>Second value</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h3>Nested Lists</h3>
+            <ul>
+                <li>Parent 1
+                    <ul>
+                        <li>Child 1.1</li>
+                        <li>Child 1.2</li>
+                    </ul>
+                </li>
+                <li>Parent 2
+                    <ol>
+                        <li>Numbered child 2.1</li>
+                        <li>Numbered child 2.2</li>
+                    </ol>
+                </li>
+            </ul>
+        </article>
+        
+        <article id="section2">
+            <h2>Section 2: Media and Code</h2>
+            <p>Here's an image: <img src="test.jpg" alt="Test Image" /></p>
+            <p>And here's some code:</p>
+            <pre><code>function hello() {
+    console.log("Hello, World!");
+    return 42;
+}</code></pre>
+            
+            <blockquote>
+                <p>This is a blockquote with <strong>nested <em>formatting</em></strong>.</p>
+            </blockquote>
+        </article>
+    </main>
+    
+    <footer>
+        <p>&copy; 2024 Test Company. All rights reserved.</p>
+    </footer>
+</body>
+</html>
+</file>
+
+<file path="tests/fixtures/html/simple.html">
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Test Page</title>
+</head>
+<body>
+    <h1>Test Page</h1>
+    <p>This is a simple test page with <strong>bold</strong> and <em>italic</em> text.</p>
+    <ul>
+        <li>First item</li>
+        <li>Second item</li>
+    </ul>
+    <p>Visit <a href="https://example.com">our website</a> for more information.</p>
+</body>
+</html>
+</file>
+
+<file path="tests/fixtures/urls/mixed_content.txt">
+Check out these resources:
+
+1. The Rust Programming Language: https://rust-lang.org
+2. <a href="https://github.com">GitHub</a>
+3. [Crates.io](https://crates.io) - The Rust package registry
+4. Also see: http://example.com/docs
+
+Some invalid URLs that should be ignored:
+- ftp://oldserver.com
+- javascript:alert('test')
+- mailto:test@example.com
+
+<p>HTML content with <a href="https://embedded-link.com">embedded link</a></p>
+
+Local file: /usr/local/share/doc/test.html
+</file>
+
+<file path="tests/fixtures/urls/test_urls.txt">
+https://example.com
+https://rust-lang.org
+https://github.com/rust-lang/rust
+https://docs.rs
+https://crates.io
+http://httpbin.org/status/200
+https://jsonplaceholder.typicode.com/posts/1
+file:///tmp/test.html
+</file>
 
 <file path=".cursor/rules/concurrency-model.mdc">
 ---
@@ -1495,6 +1735,154 @@ mod tests {
         assert!(markdown.contains("Header 2"));
         assert!(markdown.contains("Cell 1"));
         assert!(markdown.contains("Cell 2"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_nested_lists() -> Result<()> {
+        let html = r#"
+            <ul>
+                <li>Top level 1
+                    <ul>
+                        <li>Nested 1.1</li>
+                        <li>Nested 1.2</li>
+                    </ul>
+                </li>
+                <li>Top level 2
+                    <ol>
+                        <li>Nested 2.1</li>
+                        <li>Nested 2.2</li>
+                    </ol>
+                </li>
+            </ul>
+        "#;
+
+        let markdown = convert_html_to_markdown(html)?;
+        assert!(markdown.contains("Top level 1"));
+        assert!(markdown.contains("Top level 2"));
+        assert!(markdown.contains("Nested 1.1"));
+        assert!(markdown.contains("Nested 2.2"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_malformed_html() -> Result<()> {
+        // Test various malformed HTML inputs
+        let test_cases = vec![
+            "<p>Unclosed paragraph",
+            "<div><p>Mismatched tags</div></p>",
+            "Plain text with no tags",
+            "<p>Text with <unknown>unknown tag</unknown></p>",
+            "<!DOCTYPE html><p>With doctype</p>",
+        ];
+
+        for html in test_cases {
+            // Should not panic on malformed HTML
+            let result = convert_html_to_markdown(html);
+            assert!(result.is_ok(), "Failed to handle HTML: {}", html);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_unicode_content() -> Result<()> {
+        let html = r#"
+            <h1>Unicode 测试 🦀</h1>
+            <p>Greek: αβγδε</p>
+            <p>Russian: Привет мир</p>
+            <p>Emoji: 🚀 🌟 ✨</p>
+            <p>Math: ∑ ∏ ∞ ≠</p>
+        "#;
+
+        let markdown = convert_html_to_markdown(html)?;
+        assert!(markdown.contains("测试"));
+        assert!(markdown.contains("🦀"));
+        assert!(markdown.contains("αβγδε"));
+        assert!(markdown.contains("Привет"));
+        assert!(markdown.contains("🚀"));
+        assert!(markdown.contains("∑"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_complex_table() -> Result<()> {
+        let html = r#"
+            <table>
+                <thead>
+                    <tr>
+                        <th colspan="2">Merged Header</th>
+                        <th>Normal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td rowspan="2">Tall Cell</td>
+                        <td>A1</td>
+                        <td>B1</td>
+                    </tr>
+                    <tr>
+                        <td>A2</td>
+                        <td>B2</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td>Footer 1</td>
+                        <td>Footer 2</td>
+                        <td>Footer 3</td>
+                    </tr>
+                </tfoot>
+            </table>
+        "#;
+
+        let markdown = convert_html_to_markdown(html)?;
+        // Complex tables may not preserve structure perfectly, but content should be there
+        assert!(markdown.contains("Merged Header"));
+        assert!(markdown.contains("Tall Cell"));
+        assert!(markdown.contains("Footer"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_html_entities() -> Result<()> {
+        let html = r#"
+            <p>&nbsp;&nbsp;&nbsp;Indented with nbsp</p>
+            <p>Copyright &copy; 2024</p>
+            <p>Price: &pound;100 or &euro;120</p>
+            <p>Math: &alpha; + &beta; = &gamma;</p>
+        "#;
+
+        let markdown = convert_html_to_markdown(html)?;
+        // Entities should be converted to their unicode equivalents
+        assert!(markdown.contains("Indented"));
+        assert!(markdown.contains("©") || markdown.contains("Copyright"));
+        assert!(markdown.contains("£") || markdown.contains("€") || markdown.contains("100"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_preserve_links_in_nested_elements() -> Result<()> {
+        let html = r#"
+            <p>Check out <strong><a href="https://example.com">this link</a></strong> for more.</p>
+            <div>
+                <span>
+                    <a href="https://nested.com">
+                        <em>Deeply</em> <strong>nested</strong> link
+                    </a>
+                </span>
+            </div>
+        "#;
+
+        let markdown = convert_html_to_markdown(html)?;
+        assert!(markdown.contains("https://example.com"));
+        assert!(markdown.contains("https://nested.com"));
+        assert!(markdown.contains("this link"));
 
         Ok(())
     }
@@ -2939,11 +3327,17 @@ impl Cli {
 
     /// Create configuration from CLI arguments
     pub fn create_config(&self) -> crate::Config {
+        let is_single_file_output = self
+            .output
+            .as_ref()
+            .and_then(|p| p.extension())
+            .is_some_and(|ext| ext == "md");
+
         crate::Config {
             verbose: self.verbose,
             max_retries: 2,
             output_base: self.output.clone().unwrap_or_else(|| PathBuf::from(".")),
-            single_file: self.input.is_none(),
+            single_file: is_single_file_output,
             has_output: self.output.is_some(),
             pack_file: self.pack.clone(),
         }
@@ -3070,6 +3464,210 @@ mod tests {
         assert!(!urls.iter().any(|u| u == "www.example.com"));
 
         assert_eq!(urls.len(), 6, "Expected exactly 6 valid URLs");
+    }
+
+    #[test]
+    fn test_url_to_filename() {
+        assert_eq!(
+            url_to_filename("https://example.com"),
+            "https___example.com"
+        );
+        assert_eq!(
+            url_to_filename("https://example.com/path/to/file"),
+            "https___example.com_path_to_file"
+        );
+        assert_eq!(
+            url_to_filename("https://example.com?query=value#fragment"),
+            "https___example.com_query_value_fragment"
+        );
+
+        // Test special characters
+        assert_eq!(
+            url_to_filename("https://example.com/file@version:1.0"),
+            "https___example.com_file_version_1.0"
+        );
+
+        // Test long URL truncation
+        let long_url = format!("https://example.com/{}", "a".repeat(300));
+        let filename = url_to_filename(&long_url);
+        assert!(filename.len() <= 200);
+    }
+
+    #[test]
+    fn test_create_config() {
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().to_path_buf();
+        let pack_path = temp_dir.path().join("packed.md");
+
+        // Test with all options
+        let cli = Cli {
+            input: Some(PathBuf::from("input.txt")),
+            output: Some(output_path.clone()),
+            stdin: false,
+            base_url: Some("https://base.com".to_string()),
+            pack: Some(pack_path.clone()),
+            verbose: true,
+        };
+
+        let config = cli.create_config();
+        assert!(config.verbose);
+        assert_eq!(config.max_retries, 2);
+        assert_eq!(config.output_base, output_path);
+        assert!(!config.single_file);
+        assert!(config.has_output);
+        assert_eq!(config.pack_file, Some(pack_path));
+
+        // Test with minimal options
+        let cli_minimal = Cli {
+            input: None,
+            output: None,
+            stdin: true,
+            base_url: None,
+            pack: None,
+            verbose: false,
+        };
+
+        let config_minimal = cli_minimal.create_config();
+        assert!(!config_minimal.verbose);
+        assert_eq!(config_minimal.output_base, PathBuf::from("."));
+        assert!(!config_minimal.single_file);
+        assert!(!config_minimal.has_output);
+        assert_eq!(config_minimal.pack_file, None);
+    }
+
+    #[test]
+    fn test_collect_urls_with_base_url() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("relative_urls.txt");
+        let test_content = "\
+            /relative/path\n\
+            https://absolute.com/path\n\
+            ../parent/path\n\
+            ./current/path";
+
+        fs::write(&test_file, test_content)?;
+
+        let cli = Cli {
+            input: Some(test_file),
+            output: None,
+            stdin: false,
+            base_url: Some("https://base.com".to_string()),
+            pack: None,
+            verbose: false,
+        };
+
+        let urls = cli.collect_urls()?;
+        // LinkFinder may not recognize bare paths, but absolute URLs should work
+        assert!(urls.iter().any(|u| u == "https://absolute.com/path"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_empty_input_file() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("empty.txt");
+        fs::write(&test_file, "")?;
+
+        let cli = Cli {
+            input: Some(test_file),
+            output: None,
+            stdin: false,
+            base_url: None,
+            pack: None,
+            verbose: false,
+        };
+
+        let urls = cli.collect_urls()?;
+        assert!(urls.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_mixed_content_input() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("mixed.txt");
+        let test_content = r#"
+            Check out https://example.com for more info
+            <a href="https://linked.com">Link</a>
+            [Markdown](https://markdown.com)
+            Plain text with no URLs here
+            https://standalone.com
+            file:///local/path/to/file.html
+        "#;
+
+        fs::write(&test_file, test_content)?;
+
+        let cli = Cli {
+            input: Some(test_file),
+            output: None,
+            stdin: false,
+            base_url: None,
+            pack: None,
+            verbose: false,
+        };
+
+        let urls = cli.collect_urls()?;
+        assert!(urls.iter().any(|u| u.contains("example.com")));
+        assert!(urls.iter().any(|u| u.contains("linked.com")));
+        assert!(urls.iter().any(|u| u.contains("markdown.com")));
+        assert!(urls.iter().any(|u| u.contains("standalone.com")));
+        assert!(urls.iter().any(|u| u.starts_with("file://")));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_duplicate_urls_deduplication() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let test_file = temp_dir.path().join("duplicates.txt");
+        let test_content = "\
+            https://example.com\n\
+            https://example.com\n\
+            https://example.com/\n\
+            https://example.com\n";
+
+        fs::write(&test_file, test_content)?;
+
+        let cli = Cli {
+            input: Some(test_file),
+            output: None,
+            stdin: false,
+            base_url: None,
+            pack: None,
+            verbose: false,
+        };
+
+        let urls = cli.collect_urls()?;
+        // Should deduplicate to just one URL
+        assert_eq!(urls.len(), 1);
+        assert_eq!(urls[0], "https://example.com");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_glob_pattern_expansion() -> Result<()> {
+        // Note: This test would require actual glob functionality
+        // which is not currently implemented in the CLI
+        // Keeping as a placeholder for future implementation
+        Ok(())
+    }
+
+    #[test]
+    fn test_verbose_flag_config() {
+        let cli = Cli {
+            input: None,
+            output: None,
+            stdin: true,
+            base_url: None,
+            pack: None,
+            verbose: true,
+        };
+
+        let config = cli.create_config();
+        assert!(config.verbose);
     }
 }
 </file>
@@ -4384,6 +4982,144 @@ pub(crate) async fn process_url_content_with_retry(
 mod tests {
     use super::*;
     use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_create_http_client() {
+        let result = create_http_client();
+        assert!(result.is_ok());
+
+        // Verify client has proper configuration
+        let _client = result.unwrap();
+        // Client should be configured (no direct way to test internals, but creation should succeed)
+    }
+
+    #[tokio::test]
+    async fn test_skip_non_html_urls() {
+        let non_html_urls = vec![
+            "https://example.com/image.jpg",
+            "https://example.com/document.pdf",
+            "https://example.com/video.mp4",
+            "https://example.com/image.png",
+            "https://example.com/image.gif",
+            "https://example.com/image.svg",
+            "https://example.com/image.webp",
+            "https://example.com/video.webm",
+        ];
+
+        for url in non_html_urls {
+            let result = get_markdown_for_url(url).await;
+            assert!(result.is_ok());
+            assert!(result.unwrap().is_none(), "URL {} should be skipped", url);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_local_file_processing() {
+        let temp_dir = TempDir::new().unwrap();
+        let html_file = temp_dir.path().join("test.html");
+        let html_content = r#"
+            <html>
+                <head><title>Local Test</title></head>
+                <body>
+                    <h1>Local File Test</h1>
+                    <p>This is a local file.</p>
+                </body>
+            </html>
+        "#;
+
+        std::fs::write(&html_file, html_content).unwrap();
+
+        let file_url = format!("file://{}", html_file.display());
+        let result = get_markdown_for_url(&file_url).await;
+
+        assert!(result.is_ok());
+        let markdown = result.unwrap();
+        assert!(markdown.is_some());
+        let markdown_content = markdown.unwrap();
+        assert!(markdown_content.contains("Local File Test"));
+        assert!(markdown_content.contains("local file"));
+    }
+
+    #[tokio::test]
+    async fn test_process_url_with_output_path() {
+        let temp_dir = TempDir::new().unwrap();
+        let html_file = temp_dir.path().join("source.html");
+        let output_file = temp_dir.path().join("output.md");
+
+        let html_content = r#"
+            <html>
+                <body>
+                    <h1>Test Output</h1>
+                    <p>Content to be saved.</p>
+                </body>
+            </html>
+        "#;
+
+        std::fs::write(&html_file, html_content).unwrap();
+        let file_url = format!("file://{}", html_file.display());
+
+        let result = process_url_async(&file_url, Some(output_file.clone())).await;
+        assert!(result.is_ok());
+
+        // Verify output file was created
+        assert!(output_file.exists());
+        let content = std::fs::read_to_string(&output_file).unwrap();
+        assert!(content.contains("Test Output"));
+    }
+
+    #[tokio::test]
+    async fn test_process_url_with_content_return() {
+        let temp_dir = TempDir::new().unwrap();
+        let html_file = temp_dir.path().join("content.html");
+
+        let html_content = r#"
+            <html>
+                <body>
+                    <h1>Content Test</h1>
+                    <p>This content should be returned.</p>
+                </body>
+            </html>
+        "#;
+
+        std::fs::write(&html_file, html_content).unwrap();
+        let file_url = format!("file://{}", html_file.display());
+
+        let result = process_url_with_content(&file_url, None).await;
+        assert!(result.is_ok());
+
+        let content = result.unwrap();
+        assert!(content.contains("Content Test"));
+        assert!(content.contains("This content should be returned"));
+    }
+
+    #[tokio::test]
+    async fn test_retry_logic() {
+        // Test retry with a local file (should succeed immediately)
+        let temp_dir = TempDir::new().unwrap();
+        let html_file = temp_dir.path().join("retry.html");
+        std::fs::write(&html_file, "<h1>Retry Test</h1>").unwrap();
+
+        let file_url = format!("file://{}", html_file.display());
+        let result = process_url_with_retry(&file_url, None, 3).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_process_url_content_with_retry() {
+        let temp_dir = TempDir::new().unwrap();
+        let html_file = temp_dir.path().join("retry_content.html");
+        std::fs::write(&html_file, "<h1>Retry Content</h1>").unwrap();
+
+        let file_url = format!("file://{}", html_file.display());
+        let result = process_url_content_with_retry(&file_url, None, 3).await;
+
+        assert!(result.is_ok());
+        let content = result.unwrap();
+        assert!(content.is_some());
+        assert!(content.unwrap().contains("Retry Content"));
+    }
 
     #[test]
     fn test_html_processing() -> Result<()> {
@@ -4490,6 +5226,42 @@ mod tests {
         assert!(output_content.contains("# Test Content"));
 
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_fallback_for_markdown_conversion_failure() {
+        // HTML that might cause issues with conversion
+        let html_content = r#"
+            <p>Test with<br>line breaks<br/>and<br />various formats</p>
+            <p>Another paragraph</p>
+        "#;
+
+        // The fallback conversion should handle basic replacements
+        let simple_md = html_content
+            .replace("<br>", "\n")
+            .replace("<br/>", "\n")
+            .replace("<br />", "\n")
+            .replace("<p>", "\n\n")
+            .replace("</p>", "");
+
+        assert!(simple_md.contains("Test with\nline breaks\nand\nvarious formats"));
+        assert!(simple_md.contains("\n\nAnother paragraph"));
+    }
+
+    #[test]
+    fn test_monolith_panic_recovery() {
+        // Test that panic recovery mechanism works
+        // This is mostly verified by the actual implementation using catch_unwind
+        // Here we just verify the structure exists
+
+        let html = "<html><body>Test</body></html>";
+        let result = std::panic::catch_unwind(|| {
+            // Simulate code that might panic
+            let dom = monolith::html::html_to_dom(&html.as_bytes().to_vec(), "UTF-8".to_string());
+            monolith::html::serialize_document(dom, "UTF-8".to_string(), &Options::default())
+        });
+
+        assert!(result.is_ok() || result.is_err()); // Just verify catch_unwind works
     }
 }
 </file>

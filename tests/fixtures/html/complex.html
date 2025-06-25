@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Complex Test Page</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .highlight { background-color: yellow; }
+    </style>
+    <script>
+        console.log('This script should be ignored');
+    </script>
+</head>
+<body>
+    <header>
+        <h1>Complex Document Structure</h1>
+        <nav>
+            <a href="#section1">Section 1</a>
+            <a href="#section2">Section 2</a>
+        </nav>
+    </header>
+    
+    <main>
+        <article id="section1">
+            <h2>Section 1: Tables and Lists</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Value</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Alpha</td>
+                        <td>100</td>
+                        <td>First value</td>
+                    </tr>
+                    <tr>
+                        <td>Beta</td>
+                        <td>200</td>
+                        <td>Second value</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h3>Nested Lists</h3>
+            <ul>
+                <li>Parent 1
+                    <ul>
+                        <li>Child 1.1</li>
+                        <li>Child 1.2</li>
+                    </ul>
+                </li>
+                <li>Parent 2
+                    <ol>
+                        <li>Numbered child 2.1</li>
+                        <li>Numbered child 2.2</li>
+                    </ol>
+                </li>
+            </ul>
+        </article>
+        
+        <article id="section2">
+            <h2>Section 2: Media and Code</h2>
+            <p>Here's an image: <img src="test.jpg" alt="Test Image" /></p>
+            <p>And here's some code:</p>
+            <pre><code>function hello() {
+    console.log("Hello, World!");
+    return 42;
+}</code></pre>
+            
+            <blockquote>
+                <p>This is a blockquote with <strong>nested <em>formatting</em></strong>.</p>
+            </blockquote>
+        </article>
+    </main>
+    
+    <footer>
+        <p>&copy; 2024 Test Company. All rights reserved.</p>
+    </footer>
+</body>
+</html>

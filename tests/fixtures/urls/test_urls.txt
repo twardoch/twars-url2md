@@ -1,0 +1,8 @@
+https://example.com
+https://rust-lang.org
+https://github.com/rust-lang/rust
+https://docs.rs
+https://crates.io
+http://httpbin.org/status/200
+https://jsonplaceholder.typicode.com/posts/1
+file:///tmp/test.html
