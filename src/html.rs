@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use curl::easy::Easy;
 use monolith::cache::Cache;
 use monolith::core::Options;
 use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
@@ -210,6 +211,44 @@ fn create_http_client() -> Result<Client> {
         .context("Failed to create HTTP client")
 }
 
+/// Fallback HTML fetch using libcurl for robust cross-platform support.
+async fn fetch_html_with_curl(url: &str) -> Result<String> {
+    let url_owned = url.to_string();
+    tokio::task::spawn_blocking(move || {
+        let mut easy = Easy::new();
+        easy.url(&url_owned)?;
+        easy.follow_location(true)?;
+        easy.useragent(crate::USER_AGENT_STRING)?;
+        easy.accept_encoding("gzip,deflate,br")?;
+        easy.connect_timeout(Duration::from_secs(20))?;
+        easy.timeout(Duration::from_secs(60))?;
+
+        let mut data = Vec::new();
+        {
+            let mut transfer = easy.transfer();
+            transfer.write_function(|new_data| {
+                data.extend_from_slice(new_data);
+                Ok(new_data.len())
+            })?;
+            transfer.perform()?;
+        }
+
+        let code = easy.response_code()?;
+        if code >= 400 {
+            return Err(anyhow::anyhow!("HTTP error status {}", code));
+        }
+
+        let ct = easy.content_type()?.unwrap_or("text/html");
+        if !ct.contains("text/html") {
+            return Err(anyhow::anyhow!("Not an HTML page: {}", ct));
+        }
+
+        Ok(String::from_utf8_lossy(&data).into_owned())
+    })
+    .await
+    .context("curl blocking task failed")?
+}
+
 /// Fetch HTML content from a URL using monolith with specified options
 async fn fetch_html(client: &Client, url: &str) -> Result<String> {
     // Handle file:// URLs
@@ -235,12 +274,15 @@ async fn fetch_html(client: &Client, url: &str) -> Result<String> {
             resp
         }
         Ok(Err(e)) => {
-            tracing::error!("HTTP request failed for {}: {}", url, e);
-            return Err(anyhow::anyhow!("Failed to fetch URL {}: {}", url, e));
+            tracing::warn!("reqwest failed for {}: {}. Trying curl fallback", url, e);
+            return fetch_html_with_curl(url).await;
         }
         Err(_) => {
-            tracing::error!("HTTP request timed out for {} after 90 seconds", url);
-            return Err(anyhow::anyhow!("Request timed out for URL: {}", url));
+            tracing::warn!(
+                "reqwest timed out for {} after 90 seconds. Trying curl fallback",
+                url
+            );
+            return fetch_html_with_curl(url).await;
         }
     };
 
