@@ -382,6 +382,17 @@ mod url_validation_tests {
     use twars_url2md::url::extract_urls_from_text;
 
     #[test]
+    fn test_url_normalization() {
+        // Test that bare domain URLs have trailing slash removed
+        let text = "https://example.com/ https://example.com";
+        let urls = extract_urls_from_text(text, None);
+        
+        // Both should normalize to the same URL without trailing slash
+        assert_eq!(urls.len(), 1);
+        assert_eq!(urls[0], "https://example.com");
+    }
+
+    #[test]
     fn test_url_with_fragments() {
         let text = "https://example.com#section https://example.com#another";
         let urls = extract_urls_from_text(text, None);
