@@ -1,13 +1,9 @@
 use anyhow::{Context, Result};
 use curl::easy::Easy;
-use monolith::cache::Cache;
-use monolith::core::Options;
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::time::Duration;
 
 use crate::markdown;
-use crate::url::Url;
 
 /// Internal helper to fetch HTML and convert to Markdown for a given URL.
 /// Returns Ok(None) if URL is skipped (e.g., non-HTML).
@@ -25,7 +21,7 @@ async fn get_markdown_for_url(url: &str) -> Result<Option<String>> {
         || url.ends_with(".mp4")
         || url.ends_with(".webm")
     {
-        tracing::debug!("Skipping non-HTML URL (get_markdown_for_url): {}", url);
+        tracing::debug!("Skipping non-HTML URL: {}", url);
         return Ok(None);
     }
 
@@ -68,107 +64,66 @@ async fn get_markdown_for_url(url: &str) -> Result<Option<String>> {
 }
 
 /// Process a URL by downloading its content and converting to Markdown
+/// Optionally returns the Markdown content
+async fn process_url_internal(
+    url: &str,
+    output_path: Option<PathBuf>,
+    return_content: bool,
+) -> Result<Option<String>> {
+    match get_markdown_for_url(url).await? {
+        Some(markdown_content) => {
+            if let Some(path) = output_path {
+                tracing::debug!("Writing Markdown to file: {}", path.display());
+                if let Some(parent) = path.parent() {
+                    if !parent.exists() {
+                        tracing::debug!("Creating parent directory: {}", parent.display());
+                        if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                            tracing::warn!(
+                                "Failed to create directory {}: {}",
+                                parent.display(),
+                                e
+                            );
+                        }
+                    }
+                }
+                tokio::fs::write(&path, &markdown_content)
+                    .await
+                    .with_context(|| format!("Failed to write to file: {}", path.display()))?;
+                tracing::info!("Created: {}", path.display());
+            } else {
+                tracing::debug!("Printing Markdown to stdout for URL: {}", url);
+                println!("{}", markdown_content);
+            }
+            Ok(if return_content {
+                Some(markdown_content)
+            } else {
+                None
+            })
+        }
+        None => {
+            tracing::debug!("URL skipped: {}", url);
+            Ok(None)
+        }
+    }
+}
+
+/// Process a URL without returning content
 pub async fn process_url_async(
     url: &str,
     output_path: Option<PathBuf>,
-    // verbose: bool, // verbose is now handled by tracing
 ) -> Result<()> {
-    match get_markdown_for_url(url).await? {
-        Some(markdown_content) => {
-            if let Some(path) = output_path {
-                tracing::debug!(
-                    "Writing Markdown to file (process_url_async): {}",
-                    path.display()
-                );
-                if let Some(parent) = path.parent() {
-                    if !parent.exists() {
-                        tracing::debug!(
-                            "Creating parent directory (process_url_async): {}",
-                            parent.display()
-                        );
-                        if let Err(e) = tokio::fs::create_dir_all(parent).await {
-                            tracing::warn!(
-                                "Failed to create directory {} (process_url_async): {}",
-                                parent.display(),
-                                e
-                            );
-                        }
-                    }
-                }
-                tokio::fs::write(&path, &markdown_content) // Pass by reference
-                    .await
-                    .with_context(|| {
-                        format!(
-                            "Failed to write to file (process_url_async): {}",
-                            path.display()
-                        )
-                    })?;
-                tracing::info!("Created (process_url_async): {}", path.display());
-            } else {
-                tracing::debug!(
-                    "Printing Markdown to stdout for URL (process_url_async): {}",
-                    url
-                );
-                println!("{}", markdown_content);
-            }
-        }
-        None => {
-            // URL was skipped (e.g. non-HTML), already logged by get_markdown_for_url
-            tracing::debug!("URL skipped, no action needed (process_url_async): {}", url);
-        }
-    }
+    process_url_internal(url, output_path, false).await?;
     Ok(())
 }
 
-/// Process a URL by downloading its content and converting to Markdown
-/// Returns the Markdown content
+/// Process a URL and return the content
 pub async fn process_url_with_content(
     url: &str,
     output_path: Option<PathBuf>,
-    // verbose: bool, // verbose is now handled by tracing
 ) -> Result<String> {
-    match get_markdown_for_url(url).await? {
-        Some(markdown_content) => {
-            if let Some(path) = output_path {
-                tracing::debug!(
-                    "Writing Markdown to file (process_url_with_content): {}",
-                    path.display()
-                );
-                if let Some(parent) = path.parent() {
-                    if !parent.exists() {
-                        tracing::debug!(
-                            "Creating parent directory (process_url_with_content): {}",
-                            parent.display()
-                        );
-                        if let Err(e) = tokio::fs::create_dir_all(parent).await {
-                            tracing::warn!(
-                                "Failed to create directory {} (process_url_with_content): {}",
-                                parent.display(),
-                                e
-                            );
-                        }
-                    }
-                }
-                tokio::fs::write(&path, &markdown_content) // Pass by reference
-                    .await
-                    .with_context(|| {
-                        format!(
-                            "Failed to write to file (process_url_with_content): {}",
-                            path.display()
-                        )
-                    })?;
-                tracing::info!("Created (process_url_with_content): {}", path.display());
-            }
-            Ok(markdown_content)
-        }
-        None => {
-            // URL was skipped
-            tracing::debug!(
-                "URL skipped, returning empty string (process_url_with_content): {}",
-                url
-            );
-            Ok(String::new())
-        }
+    match process_url_internal(url, output_path, true).await? {
+        Some(content) => Ok(content),
+        None => Ok(String::new()),
     }
 }
 
@@ -183,7 +138,24 @@ async fn fetch_html_with_curl(url: &str) -> Result<String> {
         easy.accept_encoding("gzip,deflate,br")?;
         easy.connect_timeout(Duration::from_secs(20))?;
         easy.timeout(Duration::from_secs(60))?;
-        easy.http_version(curl::easy::HttpVersion::V11)?;
+        // Allow curl to auto-negotiate HTTP version (HTTP/2 preferred)
+        // Forcing HTTP/1.1 causes issues with some CDNs like Adobe's
+
+        // Add browser-like headers to avoid bot detection
+        let mut headers = curl::easy::List::new();
+        headers.append("Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")?;
+        headers.append("Accept-Language: en-US,en;q=0.9")?;
+        headers.append("Cache-Control: no-cache")?;
+        headers.append("Pragma: no-cache")?;
+        headers.append("Sec-Ch-Ua: \"Not_A Brand\";v=\"8\", \"Chromium\";v=\"120\", \"Google Chrome\";v=\"120\"")?;
+        headers.append("Sec-Ch-Ua-Mobile: ?0")?;
+        headers.append("Sec-Ch-Ua-Platform: \"macOS\"")?;
+        headers.append("Sec-Fetch-Dest: document")?;
+        headers.append("Sec-Fetch-Mode: navigate")?;
+        headers.append("Sec-Fetch-Site: none")?;
+        headers.append("Sec-Fetch-User: ?1")?;
+        headers.append("Upgrade-Insecure-Requests: 1")?;
+        easy.http_headers(headers)?;
 
         let mut data = Vec::new();
         {
@@ -212,146 +184,54 @@ async fn fetch_html_with_curl(url: &str) -> Result<String> {
 }
 
 /// Fetch HTML content from a URL using monolith with specified options
-#[allow(dead_code)]
-async fn fetch_html(url: &str) -> Result<String> {
-    // Handle file:// URLs
-    if url.starts_with("file://") {
-        let path = url.strip_prefix("file://").unwrap_or(url);
-        return match tokio::fs::read_to_string(path).await {
-            Ok(content) => Ok(content),
-            Err(e) => Err(anyhow::anyhow!("Failed to read local file {}: {}", path, e)),
-        };
-    }
 
-    tracing::debug!("Sending HTTP request to: {}", url);
-
-    // Since we are using curl now, the reqwest specific logic is removed.
-    // This function will now be a wrapper around monolith processing.
-    let html_bytes = fetch_html_with_curl(url).await?.into_bytes();
-
-    // First try simple HTML cleanup without Monolith
-    let simple_html = String::from_utf8_lossy(&html_bytes)
-        .replace("<!--", "")
-        .replace("-->", "")
-        .replace("<script", "<!--<script")
-        .replace("</script>", "</script>-->")
-        .replace("<style", "<!--<style")
-        .replace("</style>", "</style>-->");
-
-    // Try Monolith processing in a blocking task
-    let options = Options {
-        no_video: true,
-        isolate: true,
-        no_js: true,
-        no_css: true,
-        base_url: Some(url.to_string()),
-        ignore_errors: true,
-        no_fonts: true,
-        no_images: true,
-        insecure: true,
-        no_metadata: true,
-        silent: true,
-        no_frames: true,       // Disable iframe processing
-        unwrap_noscript: true, // Handle noscript content
-        ..Default::default()
-    };
-
-    let document_url = Url::parse(url).with_context(|| format!("Failed to parse URL: {}", url))?;
-    let html_bytes_arc = Arc::new(html_bytes.to_vec());
-
-    // Re-enable Monolith with better timeout handling
-    // Try to process with Monolith in a blocking task, fall back to simple HTML if it panics or times out.
-    tracing::debug!("Starting Monolith processing for: {}", url);
-    let monolith_future = tokio::task::spawn_blocking({
-        let html_bytes_task = Arc::clone(&html_bytes_arc);
-        let simple_html_task = simple_html.clone();
-        // Move charset, document_url, options into the closure for spawn_blocking
-        move || {
-            // This inner closure is for catch_unwind
-            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                // DOM creation can panic (e.g. charset not found by monolith)
-                let dom = monolith::html::html_to_dom(&html_bytes_task, "UTF-8".to_string());
-
-                // No client for asset embedding since we removed reqwest
-                let client_result: Result<curl::easy::Easy, curl::Error> = Err(curl::Error::new(0));
-
-                if let Ok(_client) = client_result {
-                    let _cache_map: Cache = Cache::new(0, None); // Removed mut
-                    let _cache: Option<Cache> = Some(_cache_map);
-                    // walk_and_embed_assets can panic
-                    // monolith::html::walk_and_embed_assets(
-                    //     &mut cache,
-                    //     &client,
-                    //     &document_url, // document_url was moved into spawn_blocking closure
-                    //     &dom.document,
-                    //     &options, // options was moved into spawn_blocking closure
-                    // );
-                } else {
-                    tracing::warn!(
-                        "Monolith: Asset embedding is disabled as reqwest is removed ({})",
-                        document_url
+// Generic retry wrapper for async operations
+async fn retry_operation<F, T, Fut>(
+    operation: F,
+    max_retries: u32,
+    operation_name: &str,
+) -> Result<T, anyhow::Error>
+where
+    F: Fn() -> Fut,
+    Fut: std::future::Future<Output = Result<T, anyhow::Error>>,
+{
+    let mut last_error = None;
+    for attempt in 0..=max_retries {
+        if attempt > 0 {
+            tracing::info!(
+                "Retrying {} (attempt {}/{})",
+                operation_name,
+                attempt + 1,
+                max_retries + 1
+            );
+        }
+        match operation().await {
+            Ok(result) => {
+                if attempt > 0 {
+                    tracing::info!(
+                        "Successfully completed {} on attempt {}",
+                        operation_name,
+                        attempt + 1
                     );
                 }
-
-                // serialize_document can panic
-                monolith::html::serialize_document(dom, "UTF-8".to_string(), &options)
-            })) {
-                Ok(processed_bytes) => {
-                    // Monolith operations completed without panic
-                    tracing::debug!("Monolith processing successful for {}", document_url);
-                    processed_bytes
-                }
-                Err(panic_payload) => {
-                    // Monolith panicked at some point during DOM, asset, or serialization
-                    let panic_msg = if let Some(s) = panic_payload.downcast_ref::<String>() {
-                        s.clone()
-                    } else if let Some(s) = panic_payload.downcast_ref::<&str>() {
-                        s.to_string()
-                    } else {
-                        "Unknown panic".to_string()
-                    };
-                    tracing::warn!(
-                        "Monolith panicked while processing {}: {}. Falling back to simple HTML.",
-                        document_url,
-                        panic_msg // Use moved document_url
-                    );
-                    simple_html_task.into_bytes()
+                return Ok(result);
+            }
+            Err(e) => {
+                tracing::debug!(
+                    "Attempt {} failed for {}: {}",
+                    attempt + 1,
+                    operation_name,
+                    e
+                );
+                last_error = Some(e);
+                if attempt < max_retries {
+                    tokio::time::sleep(Duration::from_secs(1 << attempt)).await;
                 }
             }
         }
-    });
-
-    // Apply timeout to the monolith processing
-    let processed_html_bytes = match tokio::time::timeout(Duration::from_secs(10), monolith_future)
-        .await
-    {
-        Ok(Ok(bytes)) => bytes, // Success
-        Ok(Err(e)) => {
-            // spawn_blocking error
-            tracing::error!("Task for monolith processing panicked or was cancelled for {}: {}. Falling back to simple HTML.", url, e);
-            simple_html.into_bytes()
-        }
-        Err(_) => {
-            // Timeout
-            tracing::warn!("Monolith processing timed out after 10 seconds for {}. Falling back to simple HTML.", url);
-            simple_html.into_bytes()
-        }
-    };
-
-    String::from_utf8(processed_html_bytes).map_err(|e| {
-        anyhow::anyhow!(
-            "Failed to convert processed HTML (UTF-8) for {}: {}",
-            url,
-            e
-        )
-    })
+    }
+    Err(last_error.unwrap())
 }
-
-// --- Functions moved from url.rs ---
-
-// Ensure tokio::time::Duration is available if not already imported at the top
-// use tokio::time::Duration; // Already imported via html.rs top-level imports if used by create_http_client etc.
-// PathBuf is already used and Result from anyhow.
 
 /// Processes a URL, retrying on failure. Writes to output_path or stdout.
 pub(crate) async fn process_url_with_retry(
@@ -361,8 +241,7 @@ pub(crate) async fn process_url_with_retry(
 ) -> Result<(), (String, anyhow::Error)> {
     if url.starts_with("file://") {
         tracing::info!("Processing local file (no retry needed): {}", url);
-        // Call to self::process_url_async (which is already in html.rs)
-        match self::process_url_async(url, output_path).await {
+        match process_url_async(url, output_path).await {
             Ok(_) => return Ok(()),
             Err(e) => {
                 tracing::error!("Error processing local file {}: {}", url, e);
@@ -371,34 +250,16 @@ pub(crate) async fn process_url_with_retry(
         }
     }
 
-    let mut last_error = None;
-    for attempt in 0..=max_retries {
-        if attempt > 0 {
-            tracing::info!(
-                "Retrying {} (attempt {}/{})",
-                url,
-                attempt + 1,
-                max_retries + 1
-            );
-        }
-        // Call to self::process_url_async
-        match self::process_url_async(url, output_path.clone()).await {
-            Ok(_) => {
-                if attempt > 0 {
-                    tracing::info!("Successfully processed {} on attempt {}", url, attempt + 1);
-                }
-                return Ok(());
-            }
-            Err(e) => {
-                tracing::debug!("Attempt {} failed for {}: {}", attempt + 1, url, e);
-                last_error = Some(e);
-                if attempt < max_retries {
-                    tokio::time::sleep(Duration::from_secs(1 << attempt)).await;
-                }
-            }
-        }
-    }
-    Err((url.to_string(), last_error.unwrap()))
+    let url_owned = url.to_string();
+    let path_clone = output_path.clone();
+    
+    retry_operation(
+        || process_url_async(&url_owned, path_clone.clone()),
+        max_retries,
+        &url_owned,
+    )
+    .await
+    .map_err(|e| (url.to_string(), e))
 }
 
 /// Fetches and processes URL content, retrying on failure. Optionally writes to file and returns content.
@@ -492,14 +353,10 @@ pub(crate) async fn process_url_content_with_retry(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use monolith::core::Options;
     use std::fs;
     use tempfile::TempDir;
 
-    #[test]
-    fn test_create_http_client() {
-        // This test is now obsolete as we are not creating a reqwest client anymore.
-        // We can keep it to ensure the file compiles.
-    }
 
     #[tokio::test]
     async fn test_skip_non_html_urls() {

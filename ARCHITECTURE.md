@@ -63,10 +63,17 @@
 - Manage HTTP client configuration
 
 **Architecture Highlights:**
-- Dual HTTP engine design (curl fallback)
+- Curl-based HTTP client with browser-like behavior
 - Panic recovery for Monolith operations
 - Configurable retry mechanism with exponential backoff
 - Resource cleanup and connection pooling
+
+**HTTP Client Configuration:**
+- Auto-negotiates HTTP version (HTTP/2 preferred)
+- Sends comprehensive browser headers to avoid bot detection
+- User-Agent: Chrome 120 on macOS
+- Includes Sec-Ch-Ua headers for modern CDN compatibility
+- 20-second connection timeout, 60-second total timeout
 
 ### 4. Markdown Conversion (`src/markdown.rs`)
 
@@ -209,19 +216,28 @@ Potential plugin points:
 ## Testing Strategy
 
 ### Unit Tests
-- Module-level testing
-- Mock HTTP responses
-- Edge case coverage
+- Module-level testing with 40+ unit tests
+- Mock HTTP responses using curl
+- Edge case coverage for URL parsing, HTML processing
+- Test fixtures for various HTML structures
 
 ### Integration Tests
-- End-to-end workflows
-- Real HTML processing
+- End-to-end workflows (6+ integration test files)
+- Real HTML processing with local files
 - Concurrent operation testing
+- Output mode verification (directory, single file, pack)
 
 ### Performance Tests
 - Load testing with 100+ URLs
 - Memory usage profiling
 - Bottleneck identification
+- Timeout and retry mechanism testing
+
+### Issue Verification Suite
+- Comprehensive test script (`issues/issuetest.py`)
+- Validates all reported issues are resolved
+- Tests CLI functionality, output modes, logging
+- Ensures regression prevention
 
 ## Future Enhancements
 
@@ -240,11 +256,32 @@ Potential plugin points:
 - Incremental updates
 - ETa/Last-Modified support
 
+## CDN Compatibility
+
+### Known Compatible CDNs
+- **Cloudflare**: Full compatibility with bot detection bypass
+- **Fastly**: Works correctly with HTTP/2 negotiation
+- **Akamai**: Handles edge cases properly
+- **Adobe CDN**: Fixed timeout issues with proper headers
+
+### Key Compatibility Features
+1. **HTTP Version Negotiation**: Never forces HTTP/1.1, allows natural ALPN
+2. **Browser Headers**: Sends full set of modern browser headers
+3. **TLS Fingerprint**: Uses curl which has browser-like TLS behavior
+4. **User-Agent**: Mimics real Chrome browser
+
+### Header Strategy
+The application sends these headers to ensure CDN compatibility:
+- User-Agent matching Chrome 120
+- Accept headers for HTML content
+- Sec-Ch-Ua headers for Client Hints
+- Sec-Fetch headers for request metadata
+- Cache-Control and Pragma headers
+
 ## Dependencies
 
 ### Core Dependencies
 - `tokio`: Async runtime
-- `reqwest`: HTTP client (being phased out)
 - `curl`: HTTP client (primary)
 - `monolith`: HTML cleaning
 - `htmd`: Markdown conversion
@@ -253,7 +290,7 @@ Potential plugin points:
 
 ### Design Rationale
 - **Tokio**: Industry standard async runtime
-- **Curl**: Better compatibility than pure Rust clients
+- **Curl**: Better compatibility with CDNs than pure Rust clients
 - **Monolith**: Best-in-class HTML cleaning
 - **htmd**: Fast, accurate MD conversion
 

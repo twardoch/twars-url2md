@@ -50,10 +50,15 @@
 
 ### Advanced Features
 
-- 🌐 **Dual HTTP Engines**: Primary `reqwest` client with `curl` fallback for compatibility
-- 🛡️ **Security**: Skips JavaScript, prevents XSS, and handles malformed content safely
-- 📈 **Scalable**: Processes hundreds of URLs efficiently with connection pooling
+- 🌐 **Modern HTTP Client**: Robust `curl`-based implementation with browser-like behavior
+- 🛡️ **CDN Compatibility**: Handles bot detection from Cloudflare, Fastly, Akamai, Adobe, and others
+- 🚀 **HTTP/2 Support**: Auto-negotiates optimal HTTP version for each server
+- 📈 **Scalable**: Processes hundreds of URLs efficiently with adaptive concurrency
 - 🔧 **Configurable**: Verbose logging, custom output paths, and retry settings
+- 🧠 **Smart Extraction**: Framework for intelligent content extraction (use `--all` to bypass)
+- 🔄 **Retry Logic**: Automatic retries with exponential backoff for failed requests
+- 📊 **Progress Tracking**: Real-time progress bars for batch operations
+- 🛡️ **Error Recovery**: Graceful handling of malformed HTML and network failures
 
 ## Installation
 
@@ -325,7 +330,18 @@ cargo test -- --nocapture
 
 # Run integration tests only
 cargo test --test '*'
+
+# Run issue verification suite
+python3 issues/issuetest.py
 ```
+
+The project includes a comprehensive issue verification suite that validates:
+- CLI functionality (help, version, argument parsing)
+- All output modes (directory, single file, pack, stdout)
+- Smart content extraction with `--all` flag
+- Error handling and recovery
+- Logging framework configuration
+- Test coverage and quality
 
 ## Contributing
 
@@ -345,13 +361,21 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 **Issue**: SSL certificate errors
 ```bash
-# Solution: The tool uses native TLS by default. For self-signed certificates:
+# Solution: The tool uses rustls by default. For self-signed certificates:
 twars-url2md -i urls.txt -o output --verbose
+```
+
+**Issue**: Timeout errors with CDN-protected sites (e.g., Adobe, Cloudflare)
+```bash
+# Solution: Fixed in latest version! The tool now:
+# - Auto-negotiates HTTP/2 for better CDN compatibility
+# - Sends browser-like headers to avoid bot detection
+# - No longer forces HTTP/1.1 which caused connection hangs
 ```
 
 **Issue**: Timeout on large pages
 ```bash
-# Solution: The tool has generous timeouts, but some pages may still timeout
+# Solution: The tool has generous timeouts (60s), but some pages may still timeout
 # Check verbose output for details
 ```
 
@@ -365,8 +389,29 @@ twars-url2md -i urls.txt -o output --verbose
 Enable detailed logging for troubleshooting:
 
 ```bash
+# Enable debug logging for the application
+RUST_LOG=twars_url2md=debug twars-url2md -i urls.txt -o output
+
+# Enable all debug logging
 RUST_LOG=debug twars-url2md -i urls.txt -o output -v
+
+# Enable info level logging (default with -v)
+RUST_LOG=info twars-url2md -i urls.txt -o output
+
+# Filter by specific module
+RUST_LOG=twars_url2md::html=debug twars-url2md -i urls.txt -o output
 ```
+
+### Logging Levels
+
+The application uses the `tracing` framework with these log levels:
+- **ERROR**: Critical failures that prevent operation
+- **WARN**: Issues that may affect output quality  
+- **INFO**: Progress updates and major operations
+- **DEBUG**: Detailed operation information
+- **TRACE**: Very detailed debugging information
+
+Use the `-v/--verbose` flag or set `RUST_LOG` environment variable to control logging output.
 
 ## Performance
 

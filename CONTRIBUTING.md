@@ -106,6 +106,55 @@ We welcome various types of contributions:
 6. **Commit your changes** with clear commit messages
 7. **Push to your fork** and submit a pull request
 
+### Issue Resolution Process
+
+When working on reported issues:
+
+1. **Analyze the Issue**:
+   - Read the issue description carefully
+   - Reproduce the problem locally
+   - Document your findings
+
+2. **Create Verification Tests**:
+   - Add tests to `issues/issuetest.py` for the specific issue
+   - Ensure tests fail before implementing the fix
+   - Tests should cover edge cases
+
+3. **Implement the Fix**:
+   - Make minimal changes to resolve the issue
+   - Follow existing code patterns
+   - Add debug logging if helpful
+
+4. **Verify Resolution**:
+   ```bash
+   # Run the issue verification suite
+   python3 issues/issuetest.py
+   
+   # Run all Rust tests
+   cargo test --all-features
+   ```
+
+5. **Document the Fix**:
+   - Update CHANGELOG.md with detailed resolution notes
+   - Move the issue file to `issues/resolved/`
+   - Update any affected documentation
+
+6. **Example Issue Resolution**:
+   ```python
+   # In issues/issuetest.py
+   def test_issue_104():
+       """Test Issue #104: Adobe CDN timeout fix"""
+       result = subprocess.run(
+           ['cargo', 'run', '--', '--stdin'],
+           input='https://helpx.adobe.com/pdf/illustrator_reference.pdf\n',
+           capture_output=True,
+           text=True,
+           timeout=10  # Should complete quickly now
+       )
+       assert result.returncode == 0
+       assert 'illustrator_reference.md' in result.stdout
+   ```
+
 ### Commit Message Guidelines
 
 Follow conventional commit format:
@@ -203,14 +252,18 @@ cargo test -- --nocapture
 
 # Run benchmarks
 cargo bench
+
+# Run issue verification tests
+python3 issues/issuetest.py
 ```
 
 ### Writing Tests
 
 1. **Unit tests**: Place in `#[cfg(test)]` modules in source files
 2. **Integration tests**: Place in `tests/` directory
-3. **Test coverage**: Aim for >80% coverage
-4. **Test naming**: Use descriptive names like `test_extract_urls_from_html_with_base_url`
+3. **Issue verification tests**: Add to `issues/issuetest.py`
+4. **Test coverage**: Aim for >80% coverage
+5. **Test naming**: Use descriptive names like `test_extract_urls_from_html_with_base_url`
 
 Example test:
 ```rust
@@ -319,8 +372,9 @@ Releases are managed by maintainers:
 ## Getting Help
 
 - **Questions**: Open a GitHub Discussion
-- **Bugs**: Open a GitHub Issue
+- **Bugs**: Open a GitHub Issue with reproduction steps
 - **Security**: Email security concerns privately
+- **Issue Status**: Check `issues/resolved/` for previously fixed issues
 
 ## Recognition
 

@@ -67,7 +67,6 @@ use std::sync::Arc;
 use std::thread;
 
 pub mod cli;
-// mod error; // Removed
 mod html;
 pub mod markdown;
 pub mod url;
