@@ -1,3 +1,4 @@
+// this_file: src/html.rs
 use anyhow::{Context, Result};
 use monolith::cache::Cache;
 use monolith::core::Options;
@@ -6,6 +7,7 @@ use reqwest::Client;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::process::Command;
 
 use crate::markdown;
 
@@ -228,19 +230,18 @@ async fn fetch_html(client: &Client, url: &str) -> Result<String> {
     // byte.  We therefore use a more generous 90-second ceiling here and rely on the lower
     // connect-timeout (20 s) plus the client-level overall timeout (60 s) to abort pathological
     // situations more quickly.
-    let response = match tokio::time::timeout(Duration::from_secs(90), client.get(url).send()).await
-    {
+    let response = match tokio::time::timeout(Duration::from_secs(90), client.get(url).send()).await {
         Ok(Ok(resp)) => {
             tracing::debug!("Received HTTP response from: {}", url);
             resp
         }
         Ok(Err(e)) => {
-            tracing::error!("HTTP request failed for {}: {}", url, e);
-            return Err(anyhow::anyhow!("Failed to fetch URL {}: {}", url, e));
+            tracing::warn!("reqwest failed for {}: {}. Falling back to curl", url, e);
+            return fetch_html_with_curl(url).await;
         }
         Err(_) => {
-            tracing::error!("HTTP request timed out for {} after 90 seconds", url);
-            return Err(anyhow::anyhow!("Request timed out for URL: {}", url));
+            tracing::warn!("HTTP request timed out for {} after 90 seconds. Falling back to curl", url);
+            return fetch_html_with_curl(url).await;
         }
     };
 
@@ -253,7 +254,8 @@ async fn fetch_html(client: &Client, url: &str) -> Result<String> {
 
     // Skip non-HTML content
     if !content_type.contains("text/html") {
-        return Err(anyhow::anyhow!("Not an HTML page: {}", content_type));
+        tracing::warn!("Unexpected content type '{}' for {} via reqwest. Falling back to curl", content_type, url);
+        return fetch_html_with_curl(url).await;
     }
 
     let (_, charset, _) = monolith::core::parse_content_type(content_type);
@@ -390,6 +392,43 @@ async fn fetch_html(client: &Client, url: &str) -> Result<String> {
             e
         )
     })
+}
+
+/// Fallback HTML fetch using the system `curl` command. This is helpful on
+/// platforms where reqwest/rustls has trouble negotiating TLS. The function
+/// attempts to fetch the given URL and returns the HTML body if successful.
+async fn fetch_html_with_curl(url: &str) -> Result<String> {
+    let output = Command::new("curl")
+        .arg("-L")
+        .arg("-s")
+        .arg("-D")
+        .arg("-")
+        .arg("-H")
+        .arg(format!("User-Agent: {}", crate::USER_AGENT_STRING))
+        .arg("-H")
+        .arg("Accept: text/html")
+        .arg(url)
+        .output()
+        .await
+        .context("Failed to spawn curl process")?;
+
+    if !output.status.success() {
+        return Err(anyhow::anyhow!(
+            "curl exited with status {}",
+            output.status
+        ));
+    }
+
+    let resp = String::from_utf8_lossy(&output.stdout);
+    let parts: Vec<&str> = resp.splitn(2, "\r\n\r\n").collect();
+    if parts.len() != 2 {
+        return Err(anyhow::anyhow!("Unexpected curl output"));
+    }
+    let headers = parts[0].to_lowercase();
+    if !headers.contains("content-type: text/html") {
+        return Err(anyhow::anyhow!("Not an HTML page (curl)"));
+    }
+    Ok(parts[1].to_string())
 }
 
 // --- Functions moved from url.rs ---
