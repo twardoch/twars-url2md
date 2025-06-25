@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use monolith::cache::Cache;
 use monolith::core::Options;
 use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
-use reqwest::Client;
+use reqwest::{Client, Proxy};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -196,18 +196,28 @@ fn create_http_client() -> Result<Client> {
         HeaderValue::from_static("en-US,en;q=0.9"),
     );
 
-    Client::builder()
+    let mut builder = Client::builder()
         .default_headers(headers)
         .pool_idle_timeout(Duration::from_secs(30))
         .pool_max_idle_per_host(10)
         .tcp_keepalive(Duration::from_secs(30))
         .timeout(Duration::from_secs(60)) // Overall request deadline (headers + body)
         .connect_timeout(Duration::from_secs(20)) // TCP/TLS handshake deadline
-        // Allow HTTP/2 (default). Some CDNs only serve large pages efficiently over h2
-        // and may stall or throttle h1 connections, which manifested as 30 s time-outs
-        // on `helpx.adobe.com`.
-        .build()
-        .context("Failed to create HTTP client")
+        // Force HTTP/1.1 to maximize compatibility with corporate proxies
+        .http1_only();
+
+    if let Ok(proxy_url) = std::env::var("HTTPS_PROXY")
+        .or_else(|_| std::env::var("https_proxy"))
+        .or_else(|_| std::env::var("HTTP_PROXY"))
+        .or_else(|_| std::env::var("http_proxy"))
+    {
+        match Proxy::all(&proxy_url) {
+            Ok(p) => builder = builder.proxy(p),
+            Err(e) => tracing::warn!("Invalid proxy URL {}: {}", proxy_url, e),
+        }
+    }
+
+    builder.build().context("Failed to create HTTP client")
 }
 
 /// Fetch HTML content from a URL using monolith with specified options
