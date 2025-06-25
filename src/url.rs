@@ -1,3 +1,33 @@
+//! URL extraction, validation, and processing utilities.
+//!
+//! This module provides functionality for:
+//! - Extracting URLs from various text formats (plain text, HTML, Markdown)
+//! - Validating and normalizing URLs
+//! - Creating output paths based on URL structure
+//! - Handling both remote URLs and local file paths
+//!
+//! ## Examples
+//!
+//! ```rust
+//! use twars_url2md::url::{extract_urls_from_text, create_output_path};
+//! use std::path::Path;
+//! use url::Url;
+//!
+//! // Extract URLs from text
+//! let text = "Check out https://example.com and https://rust-lang.org";
+//! let urls = extract_urls_from_text(text, None);
+//! assert_eq!(urls.len(), 2);
+//!
+//! // Create output path for a URL
+//! # use std::error::Error;
+//! # fn example() -> Result<(), Box<dyn Error>> {
+//! let url = Url::parse("https://example.com/blog/post")?;
+//! let output = create_output_path(&url, Path::new("./output"))?;
+//! // Results in: ./output/example.com/blog/post.md
+//! # Ok(())
+//! # }
+//! ```
+
 use anyhow::{Context, Result};
 use html5ever::parse_document;
 use html5ever::tendril::TendrilSink;
@@ -9,7 +39,39 @@ use regex;
 use std::path::{Path, PathBuf};
 pub use url::Url;
 
-/// Create an output path for a URL based on its structure
+/// Create an output path for a URL based on its structure.
+///
+/// This function generates a filesystem path that mirrors the URL structure,
+/// making it easy to organize downloaded content hierarchically.
+///
+/// # Arguments
+///
+/// * `url` - The URL to create a path for
+/// * `base_dir` - The base directory where the output structure will be created
+///
+/// # Returns
+///
+/// A `PathBuf` representing the full path where the Markdown file should be saved.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// # use url::Url;
+/// # use std::path::Path;
+/// # use anyhow::Result;
+/// # fn example() -> Result<()> {
+/// use twars_url2md::url::create_output_path;
+///
+/// let url = Url::parse("https://example.com/blog/post")?;
+/// let path = create_output_path(&url, Path::new("./output"))?;
+/// // Results in: ./output/example.com/blog/post.md
+///
+/// let url2 = Url::parse("https://example.com/")?;
+/// let path2 = create_output_path(&url2, Path::new("./output"))?;
+/// // Results in: ./output/example.com/index.md
+/// # Ok(())
+/// # }
+/// ```
 pub fn create_output_path(url: &Url, base_dir: &Path) -> Result<PathBuf> {
     let host = url.host_str().unwrap_or("unknown");
 
@@ -51,7 +113,42 @@ pub fn create_output_path(url: &Url, base_dir: &Path) -> Result<PathBuf> {
     Ok(dir_path_full.join(filename))
 }
 
-/// Extract URLs from any text input
+/// Extract URLs from any text input.
+///
+/// This function can find URLs in various formats:
+/// - Plain text URLs
+/// - HTML anchor tags and src attributes
+/// - Markdown links
+/// - Local file paths (converted to file:// URLs)
+///
+/// # Arguments
+///
+/// * `text` - The text to extract URLs from
+/// * `base_url` - Optional base URL for resolving relative URLs
+///
+/// # Returns
+///
+/// A vector of unique, validated URLs sorted alphabetically.
+///
+/// # Examples
+///
+/// ```rust
+/// use twars_url2md::url::extract_urls_from_text;
+///
+/// let text = "Visit https://example.com and check out https://rust-lang.org";
+/// let urls = extract_urls_from_text(text, None);
+/// assert_eq!(urls, vec!["https://example.com", "https://rust-lang.org"]);
+///
+/// // With HTML
+/// let html = r#"<a href="https://example.com">Link</a>"#;
+/// let urls = extract_urls_from_text(html, None);
+/// assert_eq!(urls, vec!["https://example.com"]);
+///
+/// // With base URL for relative links
+/// let text = r#"<a href="/page">Relative</a>"#;
+/// let urls = extract_urls_from_text(text, Some("https://example.com"));
+/// assert_eq!(urls, vec!["https://example.com/page"]);
+/// ```
 pub fn extract_urls_from_text(text: &str, base_url: Option<&str>) -> Vec<String> {
     // Pre-allocate with a reasonable capacity based on text length
     let estimated_capacity = text.len() / 100; // More conservative estimate

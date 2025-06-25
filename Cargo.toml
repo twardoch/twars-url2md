@@ -92,15 +92,10 @@ default-features = false
 features = ["std", "perf-dfa", "unicode-perl"]
 
 
-[dependencies.reqwest]
-version = "0.12"
-default-features = false
-features = ["rustls-tls-native-roots", "gzip", "brotli", "deflate", "native-tls"]
-
-
 [dependencies.tokio]
 version = "1.36"
 features = ["full"]
+
 
 [dependencies.curl]
 version = "0.4"

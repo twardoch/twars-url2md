@@ -1,3 +1,64 @@
+//! # twars-url2md
+//!
+//! A high-performance Rust library and CLI tool for converting web pages to clean Markdown files.
+//!
+//! ## Overview
+//!
+//! `twars-url2md` fetches web pages, cleans their HTML content using Monolith, and converts them
+//! to readable Markdown format. It supports concurrent processing, intelligent error recovery,
+//! and flexible output options.
+//!
+//! ## Features
+//!
+//! - **URL Extraction**: Finds URLs in plain text, HTML, and Markdown
+//! - **Concurrent Processing**: Adaptive parallelism based on CPU cores
+//! - **Error Recovery**: Automatic retries with exponential backoff
+//! - **Flexible Output**: Directory structure or single file output
+//! - **Local File Support**: Process local HTML files alongside remote URLs
+//!
+//! ## Library Usage
+//!
+//! ```rust,no_run
+//! use twars_url2md::{process_urls, Config};
+//! use std::path::PathBuf;
+//!
+//! # #[tokio::main]
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let urls = vec![
+//!     "https://example.com".to_string(),
+//!     "https://rust-lang.org".to_string(),
+//! ];
+//!
+//! let config = Config {
+//!     verbose: true,
+//!     max_retries: 3,
+//!     output_base: PathBuf::from("./output"),
+//!     single_file: false,
+//!     has_output: true,
+//!     pack_file: None,
+//! };
+//!
+//! let errors = process_urls(urls, config).await?;
+//! for (url, error) in errors {
+//!     eprintln!("Failed to process {}: {}", url, error);
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## CLI Usage
+//!
+//! ```bash
+//! # Process URLs from a file
+//! twars-url2md -i urls.txt -o ./output
+//!
+//! # Process from stdin
+//! echo "https://example.com" | twars-url2md --stdin -o ./output
+//!
+//! # Create packed output
+//! twars-url2md -i urls.txt --pack combined.md
+//! ```
+
 use crate::url::Url;
 use anyhow::Result;
 use futures::stream::{self, StreamExt};
@@ -8,7 +69,7 @@ use std::thread;
 pub mod cli;
 // mod error; // Removed
 mod html;
-mod markdown;
+pub mod markdown;
 pub mod url;
 
 pub use cli::Cli;
@@ -31,18 +92,75 @@ pub fn version() -> String {
 pub(crate) const USER_AGENT_STRING: &str =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-/// Configuration for URL processing
+/// Configuration for URL processing.
+///
+/// This struct contains all the configuration options needed to process
+/// a batch of URLs, including output paths, retry settings, and verbosity.
 #[derive(Debug, Clone)]
 pub struct Config {
+    /// Enable verbose logging output
     pub verbose: bool,
+    /// Maximum number of retries for failed URLs
     pub max_retries: u32,
+    /// Base directory or file path for output
     pub output_base: PathBuf,
+    /// Whether to output to a single file instead of directory structure
     pub single_file: bool,
+    /// Whether an output path was specified
     pub has_output: bool,
+    /// Optional file path to pack all content into
     pub pack_file: Option<PathBuf>,
 }
 
-/// Process a list of URLs with the given configuration
+/// Process a list of URLs with the given configuration.
+///
+/// This is the main entry point for batch URL processing. It handles concurrent
+/// downloads, error recovery, and output generation according to the provided
+/// configuration.
+///
+/// # Arguments
+///
+/// * `urls` - A vector of URLs to process
+/// * `config` - Configuration options for processing
+///
+/// # Returns
+///
+/// A `Result` containing a vector of errors (URL and error pairs) for URLs that
+/// failed to process. An empty vector indicates all URLs were processed successfully.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use twars_url2md::{process_urls, Config};
+/// use std::path::PathBuf;
+///
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let urls = vec![
+///     "https://example.com".to_string(),
+///     "https://rust-lang.org".to_string(),
+/// ];
+///
+/// let config = Config {
+///     verbose: true,
+///     max_retries: 3,
+///     output_base: PathBuf::from("./output"),
+///     single_file: false,
+///     has_output: true,
+///     pack_file: None,
+/// };
+///
+/// let errors = process_urls(urls, config).await?;
+/// if errors.is_empty() {
+///     println!("All URLs processed successfully!");
+/// } else {
+///     for (url, error) in errors {
+///         eprintln!("Failed to process {}: {}", url, error);
+///     }
+/// }
+/// # Ok(())
+/// # }
+/// ```
 pub async fn process_urls(
     urls: Vec<String>,
     config: Config,

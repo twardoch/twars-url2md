@@ -1,7 +1,38 @@
+//! # twars-url2md Binary
+//!
+//! Command-line interface for the twars-url2md web page to Markdown converter.
+//!
+//! This binary provides a robust CLI tool that fetches web pages and converts them
+//! to clean Markdown files. It includes panic recovery to handle edge cases where
+//! the HTML processing libraries might panic on malformed content.
+//!
+//! ## Usage
+//!
+//! ```bash
+//! # Process URLs from a file
+//! twars-url2md -i urls.txt -o ./output
+//!
+//! # Process from stdin
+//! echo "https://example.com" | twars-url2md --stdin
+//!
+//! # Create packed output
+//! twars-url2md -i urls.txt --pack combined.md
+//! ```
+//!
+//! ## Features
+//!
+//! - Panic recovery for robust HTML processing
+//! - Concurrent URL processing
+//! - Progress bars for batch operations
+//! - Flexible input/output options
+//!
+//! See `twars-url2md --help` for full command-line options.
+
 use anyhow::Result;
 use std::panic;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
+/// Main entry point for the CLI application
 fn run() -> Result<()> {
     // Disable backtrace for cleaner error messages by default, can be overridden by RUST_BACKTRACE=1
     if std::env::var("RUST_BACKTRACE").is_err() {

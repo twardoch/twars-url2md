@@ -1,3 +1,17 @@
+//! Command-line interface implementation for twars-url2md.
+//!
+//! This module provides the CLI argument parsing and configuration management
+//! for the twars-url2md tool. It handles input from files or stdin, manages
+//! output options, and creates the processing configuration.
+//!
+//! ## Features
+//!
+//! - Flexible input options (file or stdin)
+//! - Multiple output modes (directory structure, single file, packed)
+//! - URL extraction from various text formats
+//! - Verbose logging support
+//! - Base URL resolution for relative links
+
 use anyhow::Result;
 use clap::Parser;
 use std::fs;

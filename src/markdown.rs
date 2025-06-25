@@ -1,6 +1,46 @@
+//! HTML to Markdown conversion functionality.
+//!
+//! This module provides a simple interface to the `htmd` library for converting
+//! HTML content to clean, readable Markdown format. It preserves document
+//! structure while removing unnecessary HTML elements.
+//!
+//! ## Features
+//!
+//! - Converts all standard HTML elements to Markdown equivalents
+//! - Preserves document structure (headings, lists, tables)
+//! - Handles nested formatting (bold, italic, code)
+//! - Maintains links and images
+//! - Cleans up script and style content
+
 use anyhow::{Context, Result};
 
-/// Convert HTML to Markdown
+/// Convert HTML to Markdown.
+///
+/// This function takes HTML content and converts it to Markdown format using
+/// the `htmd` library. It handles all standard HTML elements and produces
+/// clean, readable Markdown output.
+///
+/// # Arguments
+///
+/// * `html` - The HTML content to convert
+///
+/// # Returns
+///
+/// A `Result` containing the converted Markdown string or an error if conversion fails.
+///
+/// # Examples
+///
+/// ```rust
+/// use twars_url2md::markdown::convert_html_to_markdown;
+///
+/// # fn example() -> anyhow::Result<()> {
+/// let html = "<h1>Title</h1><p>This is a <strong>paragraph</strong>.</p>";
+/// let markdown = convert_html_to_markdown(html)?;
+/// assert!(markdown.contains("# Title"));
+/// assert!(markdown.contains("**paragraph**"));
+/// # Ok(())
+/// # }
+/// ```
 pub fn convert_html_to_markdown(html: &str) -> Result<String> {
     htmd::convert(html).context("Failed to convert HTML to Markdown")
 }
