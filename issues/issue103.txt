@@ -24,21 +24,26 @@ You can add a config file for additional settings. Please check https://github.c
 
 📈 Top 5 Files by Character Count and Token Count:
 ──────────────────────────────────────────────────
-1.  src/html.rs (24,896 chars, 5,155 tokens, 14.5%)
-2.  TODO.md (13,341 chars, 3,229 tokens, 9.1%)
+1.  src/html.rs (26,203 chars, 5,439 tokens, 15.1%)
+2.  TODO.md (13,341 chars, 3,229 tokens, 9%)
 3.  src/url.rs (10,443 chars, 2,326 tokens, 6.5%)
-4.  src/lib.rs (10,279 chars, 2,015 tokens, 5.7%)
+4.  src/lib.rs (10,279 chars, 2,015 tokens, 5.6%)
 5.  tests/integration/e2e_tests.rs (9,880 chars, 2,322 tokens, 6.5%)
 
 🔎 Security Check:
 ──────────────────
-3 suspicious file(s) detected and excluded from the output:
+4 suspicious file(s) detected and excluded from the output:
 1. issues/issue102.txt
    - found basic auth credential: https://user:pass@example.com
    - found basic auth credential: https://user:pass@example.com
-2. src/tests.rs
+2. issues/issue103.txt
    - found basic auth credential: https://user:pass@example.com
-3. tests/unit/url_tests.rs
+   - found basic auth credential: https://user:pass@example.com
+   - found basic auth credential: https://user:pass@example.com
+   - found basic auth credential: https://user:pass@example.com
+3. src/tests.rs
+   - found basic auth credential: https://user:pass@example.com
+4. tests/unit/url_tests.rs
    - found basic auth credential: https://user:pass@example.com
 
 These files have been excluded from the output for security reasons.
@@ -47,10 +52,10 @@ Please review these files for potential sensitive information.
 📊 Pack Summary:
 ────────────────
   Total Files: 34 files
-  Total Chars: 159,195 chars
- Total Tokens: 36,581 tokens
+  Total Chars: 160,553 chars
+ Total Tokens: 36,881 tokens
        Output: llms.txt
-     Security: 3 suspicious file(s) detected and excluded
+     Security: 4 suspicious file(s) detected and excluded
 
 🎉 All Done!
 Your repository has been successfully packed.
@@ -63,62 +68,37 @@ Your repository has been successfully packed.
 [SUCCESS] Code is already formatted
 [INFO] Running linter (clippy)...
     Updating crates.io index
-  Downloaded rustc-hash v2.1.1
-  Downloaded tinyvec v1.9.0
-  Downloaded tinyvec_macros v0.1.1
-  Downloaded lru-slab v0.1.2
-  Downloaded rustls-native-certs v0.8.1
-  Downloaded quinn-udp v0.5.13
-  Downloaded security-framework v3.2.0
-  Downloaded quinn v0.11.8
-  Downloaded quinn-proto v0.11.12
-  Downloaded 9 crates (536.0KiB) in 0.57s
-   Compiling ring v0.17.8
-    Checking untrusted v0.9.0
-    Checking spin v0.9.8
-   Compiling rustls v0.23.22
-    Checking core-foundation v0.10.1
-    Checking zeroize v1.8.1
-    Checking subtle v2.6.1
-   Compiling twars-url2md v1.4.2 (/Users/adam/Developer/pub/twars-url2md)
-    Checking security-framework v3.2.0
-    Checking rustls-native-certs v0.8.1
-    Checking rustls-webpki v0.102.8
-    Checking tokio-rustls v0.26.1
-    Checking hyper-rustls v0.27.5
+  Downloaded curl v0.4.48
+  Downloaded curl-sys v0.4.82+curl-8.14.1
+  Downloaded 2 crates (1.9MiB) in 0.76s (largest was `curl-sys` at 1.8MiB)
+   Compiling libz-sys v1.1.22
+   Compiling curl-sys v0.4.82+curl-8.14.1
+   Compiling curl v0.4.48
     Checking reqwest v0.12.15
+   Compiling twars-url2md v1.4.2 (/Users/adam/Developer/pub/twars-url2md)
     Checking monolith v2.10.1
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.97s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.85s
 [SUCCESS] Linting completed
 [INFO] Running tests...
-   Compiling spin v0.9.8
-   Compiling untrusted v0.9.0
-   Compiling core-foundation v0.10.1
-   Compiling subtle v2.6.1
-   Compiling zeroize v1.8.1
-   Compiling ring v0.17.8
-   Compiling security-framework v3.2.0
-   Compiling rustls-webpki v0.102.8
-   Compiling rustls-native-certs v0.8.1
-   Compiling rustls v0.23.22
-   Compiling tokio-rustls v0.26.1
-   Compiling hyper-rustls v0.27.5
+   Compiling libz-sys v1.1.22
    Compiling reqwest v0.12.15
+   Compiling curl-sys v0.4.82+curl-8.14.1
+   Compiling curl v0.4.48
    Compiling monolith v2.10.1
    Compiling twars-url2md v1.4.2 (/Users/adam/Developer/pub/twars-url2md)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.43s
-     Running unittests src/lib.rs (target/debug/deps/twars_url2md-091ab38d418f80ab)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.21s
+     Running unittests src/lib.rs (target/debug/deps/twars_url2md-f2b56f9e539e3abf)
 
 running 18 tests
-test markdown::tests::test_empty_elements ... ok
-test markdown::tests::test_blockquotes ... ok
+test markdown::tests::test_heading_levels ... ok
 test markdown::tests::test_convert_html_to_markdown ... ok
 test markdown::tests::test_code_blocks ... ok
-test markdown::tests::test_heading_levels ... ok
+test markdown::tests::test_empty_elements ... ok
+test markdown::tests::test_blockquotes ... ok
 test html::tests::test_markdown_output ... ok
 test markdown::tests::test_horizontal_rule ... ok
-test markdown::tests::test_nested_formatting ... ok
 test markdown::tests::test_links_and_images ... ok
+test markdown::tests::test_nested_formatting ... ok
 test markdown::tests::test_lists ... ok
 test markdown::tests::test_script_style_removal ... ok
 test markdown::tests::test_table_conversion ... ok
@@ -129,48 +109,48 @@ test url::tests::test_extract_urls_from_text ... ok
 test cli::tests::test_collect_urls_from_text_file ... ok
 test html::tests::test_html_processing ... ok
 
-test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.22s
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.17s
 
-     Running unittests src/main.rs (target/debug/deps/twars_url2md-28528f73a6e35daf)
+     Running unittests src/main.rs (target/debug/deps/twars_url2md-51a08fe70c50bb13)
 
 running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/tests.rs (target/debug/deps/tests-bacf688d24951d88)
+     Running tests/tests.rs (target/debug/deps/tests-8b13044da4107723)
 
 running 31 tests
 test unit::url_tests::html_extraction_tests::test_empty_html ... ok
-test unit::url_tests::html_extraction_tests::test_extract_urls_from_simple_html ... ok
-test unit::url_tests::html_extraction_tests::test_extract_urls_from_srcset ... ok
-test unit::url_tests::html_extraction_tests::test_html_with_url_in_text ... ok
 test unit::url_tests::html_extraction_tests::test_extract_relative_urls_with_base ... ok
-test unit::url_tests::html_extraction_tests::test_malformed_html_handling ... ok
+test unit::url_tests::html_extraction_tests::test_extract_urls_from_srcset ... ok
 test unit::url_tests::html_extraction_tests::test_duplicate_urls_in_html ... ok
 test unit::url_tests::html_extraction_tests::test_ignore_non_http_urls_in_html ... ok
+test unit::url_tests::html_extraction_tests::test_malformed_html_handling ... ok
+test unit::url_tests::html_extraction_tests::test_html_with_url_in_text ... ok
+test unit::url_tests::html_extraction_tests::test_extract_urls_from_simple_html ... ok
 test unit::url_tests::html_extraction_tests::test_extract_urls_with_data_attributes ... ok
-test unit::url_tests::output_path_tests::test_create_output_path_with_extension ... ok
 test unit::url_tests::output_path_tests::test_create_output_path_simple ... ok
+test unit::url_tests::output_path_tests::test_create_output_path_with_extension ... ok
+test unit::url_tests::output_path_tests::test_create_output_path_with_path ... ok
 test unit::url_tests::output_path_tests::test_create_output_path_trailing_slash ... ok
 test unit::url_tests::output_path_tests::test_create_output_path_no_host ... ok
-test unit::url_tests::output_path_tests::test_create_output_path_with_path ... ok
 test unit::url_tests::output_path_tests::test_create_output_path_complex ... ok
 test unit::url_tests::output_path_tests::test_create_output_directories ... ok
-test unit::url_tests::url_extraction_tests::test_extract_urls_deduplication ... ok
+test unit::url_tests::url_extraction_tests::test_extract_urls_from_markdown ... ok
 test unit::url_tests::url_extraction_tests::test_extract_urls_from_plain_text ... ok
 test unit::url_tests::url_extraction_tests::test_extract_local_file_paths ... ok
-test unit::url_tests::url_extraction_tests::test_extract_urls_from_markdown ... ok
-test unit::url_tests::url_extraction_tests::test_mixed_content ... ok
+test unit::url_tests::url_extraction_tests::test_extract_urls_with_base_url ... ok
+test unit::url_tests::url_extraction_tests::test_extract_urls_deduplication ... ok
+test unit::url_tests::url_extraction_tests::test_empty_input ... ok
 test unit::url_tests::url_extraction_tests::test_invalid_urls_ignored ... ok
 test unit::url_tests::url_extraction_tests::test_urls_with_special_characters ... ok
-test unit::url_tests::url_extraction_tests::test_extract_urls_with_base_url ... ok
 test unit::url_tests::url_validation_tests::test_malformed_urls_rejected ... ok
-test unit::url_tests::url_validation_tests::test_url_with_fragments ... ok
-test unit::url_tests::url_extraction_tests::test_empty_input ... ok
-test unit::url_tests::url_validation_tests::test_url_with_query_params ... ok
+test unit::url_tests::url_extraction_tests::test_mixed_content ... ok
 test unit::url_tests::url_validation_tests::test_internationalized_domains ... ok
-test unit::url_tests::url_validation_tests::test_urls_with_ports ... ok
+test unit::url_tests::url_validation_tests::test_url_with_fragments ... ok
 test unit::url_tests::url_validation_tests::test_urls_with_authentication ... ok
+test unit::url_tests::url_validation_tests::test_url_with_query_params ... ok
+test unit::url_tests::url_validation_tests::test_urls_with_ports ... ok
 
 test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
@@ -182,36 +162,33 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 [SUCCESS] Tests completed
 [INFO] Building release binary...
-   Compiling ring v0.17.8
-   Compiling getrandom v0.2.15
-   Compiling untrusted v0.9.0
-   Compiling spin v0.9.8
-   Compiling rustls v0.23.22
-   Compiling hyper v1.6.0
-   Compiling core-foundation v0.10.1
-   Compiling subtle v2.6.1
-   Compiling zeroize v1.8.1
-   Compiling tokio-util v0.7.13
-   Compiling security-framework v3.2.0
-   Compiling hyper-util v0.1.10
-   Compiling rustls-native-certs v0.8.1
-   Compiling hyper-tls v0.6.0
-   Compiling rustls-webpki v0.102.8
-   Compiling tokio-rustls v0.26.1
-   Compiling hyper-rustls v0.27.5
+   Compiling libz-sys v1.1.22
+   Compiling curl-sys v0.4.82+curl-8.14.1
+   Compiling curl v0.4.48
    Compiling reqwest v0.12.15
    Compiling monolith v2.10.1
    Compiling twars-url2md v1.4.2 (/Users/adam/Developer/pub/twars-url2md)
-    Finished `release` profile [optimized] target(s) in 44.89s
+    Finished `release` profile [optimized] target(s) in 40.34s
 [SUCCESS] Release build completed
 [INFO] Binary location: target/release/twars-url2md
 [INFO] Binary size: 6.4M
 [SUCCESS] Build process completed successfully!
-2025-06-24T23:17:52.962739Z  INFO twars_url2md::cli: Reading URLs from stdin.
-2025-06-24T23:17:52.963396Z  INFO twars_url2md: Collected 1 URLs to process.
-2025-06-24T23:17:52.963997Z  INFO twars_url2md: Processing URL: https://helpx.adobe.com/pl/indesign/using/using-fonts.html
-2025-06-24T23:18:52.966573Z ERROR twars_url2md::html: HTTP request failed for https://helpx.adobe.com/pl/indesign/using/using-fonts.html: error sending request for url (https://helpx.adobe.com/pl/indesign/using/using-fonts.html)
-2025-06-24T23:18:52.966636Z  WARN twars_url2md::html: Error fetching HTML from https://helpx.adobe.com/pl/indesign/using/using-fonts.html (get_markdown_for_url): Failed to fetch URL https://helpx.adobe.com/pl/indesign/using/using-fonts.html: error sending request for url (https://helpx.adobe.com/pl/indesign/using/using-fonts.html). Using fallback processing.
+2025-06-25T00:04:07.002132Z  INFO twars_url2md::cli: Reading URLs from stdin.
+2025-06-25T00:04:07.002794Z  INFO twars_url2md: Collected 1 URLs to process.
+2025-06-25T00:04:07.003373Z  INFO twars_url2md: Processing URL: https://helpx.adobe.com/pl/indesign/using/using-fonts.html
+2025-06-25T00:05:07.005617Z  WARN twars_url2md::html: reqwest failed for https://helpx.adobe.com/pl/indesign/using/using-fonts.html: error sending request for url (https://helpx.adobe.com/pl/indesign/using/using-fonts.html). Trying curl fallback
+2025-06-25T00:05:07.124185Z  WARN twars_url2md::html: Error fetching HTML from https://helpx.adobe.com/pl/indesign/using/using-fonts.html (get_markdown_for_url): [92] Stream error in the HTTP/2 framing layer (HTTP/2 stream 1 was not closed cleanly: INTERNAL_ERROR (err 2)). Using fallback processing.
+2025-06-25T00:06:08.127873Z  INFO twars_url2md::html: Retrying https://helpx.adobe.com/pl/indesign/using/using-fonts.html (attempt 2/3)
+2025-06-25T00:07:08.128972Z  WARN twars_url2md::html: reqwest failed for https://helpx.adobe.com/pl/indesign/using/using-fonts.html: error sending request for url (https://helpx.adobe.com/pl/indesign/using/using-fonts.html). Trying curl fallback
+2025-06-25T00:07:08.544019Z  WARN twars_url2md::html: Error fetching HTML from https://helpx.adobe.com/pl/indesign/using/using-fonts.html (get_markdown_for_url): [92] Stream error in the HTTP/2 framing layer (HTTP/2 stream 1 was not closed cleanly: INTERNAL_ERROR (err 2)). Using fallback processing.
+2025-06-25T00:08:10.547190Z  INFO twars_url2md::html: Retrying https://helpx.adobe.com/pl/indesign/using/using-fonts.html (attempt 3/3)
+2025-06-25T00:09:10.549623Z  WARN twars_url2md::html: reqwest failed for https://helpx.adobe.com/pl/indesign/using/using-fonts.html: error sending request for url (https://helpx.adobe.com/pl/indesign/using/using-fonts.html). Trying curl fallback
+2025-06-25T00:09:10.666800Z  WARN twars_url2md::html: Error fetching HTML from https://helpx.adobe.com/pl/indesign/using/using-fonts.html (get_markdown_for_url): [92] Stream error in the HTTP/2 framing layer (HTTP/2 stream 1 was not closed cleanly: INTERNAL_ERROR (err 2)). Using fallback processing.
+2025-06-25T00:10:10.668526Z  WARN twars_url2md: 
+Summary of failures:
+2025-06-25T00:10:10.668568Z  WARN twars_url2md:   https://helpx.adobe.com/pl/indesign/using/using-fonts.html - error sending request for url (https://helpx.adobe.com/pl/indesign/using/using-fonts.html)
+2025-06-25T00:10:10.668581Z  WARN twars_url2md: 
+1 URLs failed to process
 ```
 
 but 
@@ -222,4 +199,4 @@ curl "https://helpx.adobe.com/pl/indesign/using/using-fonts.html"
 
 works just fine. 
 
-We did some recent improvements (check git), but it’s still not enough. Make a radical re-thinking. 
+This is terrible. Aggressively and insightfully try to solve this problem. 

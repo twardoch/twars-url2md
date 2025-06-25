@@ -207,6 +207,10 @@ fn create_http_client() -> Result<Client> {
         // Allow HTTP/2 (default). Some CDNs only serve large pages efficiently over h2
         // and may stall or throttle h1 connections, which manifested as 30 s time-outs
         // on `helpx.adobe.com`.
+        //
+        // Forcing HTTP/1.1 as a workaround for servers with problematic HTTP/2
+        // implementations, like the one observed with helpx.adobe.com.
+        .http1_only()
         .build()
         .context("Failed to create HTTP client")
 }
@@ -222,6 +226,7 @@ async fn fetch_html_with_curl(url: &str) -> Result<String> {
         easy.accept_encoding("gzip,deflate,br")?;
         easy.connect_timeout(Duration::from_secs(20))?;
         easy.timeout(Duration::from_secs(60))?;
+        easy.http_version(curl::easy::HttpVersion::V11)?;
 
         let mut data = Vec::new();
         {

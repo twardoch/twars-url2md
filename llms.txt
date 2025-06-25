@@ -3693,8 +3693,112 @@ Adam Twardoch ([@twardoch](https://github.com/twardoch))
 For bug reports, feature requests, or general questions, please open an issue on the [GitHub repository](https://github.com/twardoch/twars-url2md/issues).
 </file>
 
+<file path="src/main.rs">
+use anyhow::Result;
+use std::panic;
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+
+fn run() -> Result<()> {
+    // Disable backtrace for cleaner error messages by default, can be overridden by RUST_BACKTRACE=1
+    if std::env::var("RUST_BACKTRACE").is_err() {
+        std::env::set_var("RUST_BACKTRACE", "0");
+    }
+
+    // Parse command-line arguments
+    let cli = twars_url2md::cli::Cli::parse_args()?;
+
+    // Create configuration
+    let config = cli.create_config();
+
+    // Initialize tracing subscriber
+    let filter_layer = EnvFilter::try_from_default_env().or_else(|_| {
+        if config.verbose {
+            EnvFilter::try_new("info,twars_url2md=debug")
+        } else {
+            EnvFilter::try_new("info")
+        }
+    })?;
+    tracing_subscriber::registry()
+        .with(fmt::layer())
+        .with(filter_layer)
+        .init();
+
+    tracing::debug!("CLI args parsed and config created: {:?}", config);
+
+    // Collect URLs from all input sources
+    let urls = cli.collect_urls()?;
+    tracing::info!("Collected {} URLs to process.", urls.len());
+
+    // Process URLs
+    let rt = tokio::runtime::Runtime::new()?;
+    let errors = rt.block_on(twars_url2md::process_urls(urls, config))?;
+
+    // Report summary
+    if !errors.is_empty() {
+        tracing::warn!("\nSummary of failures:");
+        for (url, error) in &errors {
+            tracing::warn!("  {} - {}", url, error);
+        }
+        tracing::warn!("\n{} URLs failed to process", errors.len());
+    } else {
+        tracing::info!("All URLs processed successfully.");
+    }
+
+    Ok(())
+}
+
+fn main() {
+    // Set custom panic hook that prevents abort
+    // TODO: Re-evaluate this after error handling refinement. Goal is to avoid panics.
+    panic::set_hook(Box::new(|panic_info| {
+        // Use tracing for panic information if available, otherwise eprintln
+        // Check if a tracer is installed, otherwise tracing::event! will panic
+        if tracing::dispatcher::has_been_set() {
+            if let Some(location) = panic_info.location() {
+                tracing::error!(
+                    "Panic occurred in {} at line {}: {}",
+                    location.file(),
+                    location.line(),
+                    panic_info
+                );
+            } else {
+                tracing::error!("Panic occurred: {}", panic_info);
+            }
+        } else if let Some(location) = panic_info.location() {
+            eprintln!(
+                "PANIC: Processing error in {} at line {}: {}",
+                location.file(),
+                location.line(),
+                panic_info
+            );
+        } else {
+            eprintln!("PANIC: Processing error occurred: {}", panic_info);
+        }
+    }));
+
+    // Run the program in a catch_unwind to prevent unwinding across FFI boundaries
+    // TODO: Re-evaluate this after error handling refinement. // This is the re-evaluation.
+    // The run() function is expected to handle its errors and return a Result.
+    // Panics from dependencies like monolith are caught internally.
+    // Thus, catch_unwind around run() is no longer strictly necessary.
+    if let Err(e) = run() {
+        // Use tracing for error reporting if available
+        if tracing::dispatcher::has_been_set() {
+            tracing::error!("Application error: {:?}", e);
+        } else {
+            eprintln!("Error: {:?}", e);
+        }
+        std::process::exit(1);
+    }
+    // If run() completes without error, exit(0) is implicit.
+    // If run() itself panics (which it shouldn't for recoverable errors),
+    // the panic_hook will log it, and the process will abort.
+}
+</file>
+
 <file path="src/html.rs">
 use anyhow::{Context, Result};
+use curl::easy::Easy;
 use monolith::cache::Cache;
 use monolith::core::Options;
 use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
@@ -3902,8 +4006,51 @@ fn create_http_client() -> Result<Client> {
         // Allow HTTP/2 (default). Some CDNs only serve large pages efficiently over h2
         // and may stall or throttle h1 connections, which manifested as 30 s time-outs
         // on `helpx.adobe.com`.
+        //
+        // Forcing HTTP/1.1 as a workaround for servers with problematic HTTP/2
+        // implementations, like the one observed with helpx.adobe.com.
+        .http1_only()
         .build()
         .context("Failed to create HTTP client")
+}
+
+/// Fallback HTML fetch using libcurl for robust cross-platform support.
+async fn fetch_html_with_curl(url: &str) -> Result<String> {
+    let url_owned = url.to_string();
+    tokio::task::spawn_blocking(move || {
+        let mut easy = Easy::new();
+        easy.url(&url_owned)?;
+        easy.follow_location(true)?;
+        easy.useragent(crate::USER_AGENT_STRING)?;
+        easy.accept_encoding("gzip,deflate,br")?;
+        easy.connect_timeout(Duration::from_secs(20))?;
+        easy.timeout(Duration::from_secs(60))?;
+        easy.http_version(curl::easy::HttpVersion::V11)?;
+
+        let mut data = Vec::new();
+        {
+            let mut transfer = easy.transfer();
+            transfer.write_function(|new_data| {
+                data.extend_from_slice(new_data);
+                Ok(new_data.len())
+            })?;
+            transfer.perform()?;
+        }
+
+        let code = easy.response_code()?;
+        if code >= 400 {
+            return Err(anyhow::anyhow!("HTTP error status {}", code));
+        }
+
+        let ct = easy.content_type()?.unwrap_or("text/html");
+        if !ct.contains("text/html") {
+            return Err(anyhow::anyhow!("Not an HTML page: {}", ct));
+        }
+
+        Ok(String::from_utf8_lossy(&data).into_owned())
+    })
+    .await
+    .context("curl blocking task failed")?
 }
 
 /// Fetch HTML content from a URL using monolith with specified options
@@ -3931,12 +4078,15 @@ async fn fetch_html(client: &Client, url: &str) -> Result<String> {
             resp
         }
         Ok(Err(e)) => {
-            tracing::error!("HTTP request failed for {}: {}", url, e);
-            return Err(anyhow::anyhow!("Failed to fetch URL {}: {}", url, e));
+            tracing::warn!("reqwest failed for {}: {}. Trying curl fallback", url, e);
+            return fetch_html_with_curl(url).await;
         }
         Err(_) => {
-            tracing::error!("HTTP request timed out for {} after 90 seconds", url);
-            return Err(anyhow::anyhow!("Request timed out for URL: {}", url));
+            tracing::warn!(
+                "reqwest timed out for {} after 90 seconds. Trying curl fallback",
+                url
+            );
+            return fetch_html_with_curl(url).await;
         }
     };
 
@@ -4344,109 +4494,6 @@ mod tests {
 }
 </file>
 
-<file path="src/main.rs">
-use anyhow::Result;
-use std::panic;
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
-
-fn run() -> Result<()> {
-    // Disable backtrace for cleaner error messages by default, can be overridden by RUST_BACKTRACE=1
-    if std::env::var("RUST_BACKTRACE").is_err() {
-        std::env::set_var("RUST_BACKTRACE", "0");
-    }
-
-    // Parse command-line arguments
-    let cli = twars_url2md::cli::Cli::parse_args()?;
-
-    // Create configuration
-    let config = cli.create_config();
-
-    // Initialize tracing subscriber
-    let filter_layer = EnvFilter::try_from_default_env().or_else(|_| {
-        if config.verbose {
-            EnvFilter::try_new("info,twars_url2md=debug")
-        } else {
-            EnvFilter::try_new("info")
-        }
-    })?;
-    tracing_subscriber::registry()
-        .with(fmt::layer())
-        .with(filter_layer)
-        .init();
-
-    tracing::debug!("CLI args parsed and config created: {:?}", config);
-
-    // Collect URLs from all input sources
-    let urls = cli.collect_urls()?;
-    tracing::info!("Collected {} URLs to process.", urls.len());
-
-    // Process URLs
-    let rt = tokio::runtime::Runtime::new()?;
-    let errors = rt.block_on(twars_url2md::process_urls(urls, config))?;
-
-    // Report summary
-    if !errors.is_empty() {
-        tracing::warn!("\nSummary of failures:");
-        for (url, error) in &errors {
-            tracing::warn!("  {} - {}", url, error);
-        }
-        tracing::warn!("\n{} URLs failed to process", errors.len());
-    } else {
-        tracing::info!("All URLs processed successfully.");
-    }
-
-    Ok(())
-}
-
-fn main() {
-    // Set custom panic hook that prevents abort
-    // TODO: Re-evaluate this after error handling refinement. Goal is to avoid panics.
-    panic::set_hook(Box::new(|panic_info| {
-        // Use tracing for panic information if available, otherwise eprintln
-        // Check if a tracer is installed, otherwise tracing::event! will panic
-        if tracing::dispatcher::has_been_set() {
-            if let Some(location) = panic_info.location() {
-                tracing::error!(
-                    "Panic occurred in {} at line {}: {}",
-                    location.file(),
-                    location.line(),
-                    panic_info
-                );
-            } else {
-                tracing::error!("Panic occurred: {}", panic_info);
-            }
-        } else if let Some(location) = panic_info.location() {
-            eprintln!(
-                "PANIC: Processing error in {} at line {}: {}",
-                location.file(),
-                location.line(),
-                panic_info
-            );
-        } else {
-            eprintln!("PANIC: Processing error occurred: {}", panic_info);
-        }
-    }));
-
-    // Run the program in a catch_unwind to prevent unwinding across FFI boundaries
-    // TODO: Re-evaluate this after error handling refinement. // This is the re-evaluation.
-    // The run() function is expected to handle its errors and return a Result.
-    // Panics from dependencies like monolith are caught internally.
-    // Thus, catch_unwind around run() is no longer strictly necessary.
-    if let Err(e) = run() {
-        // Use tracing for error reporting if available
-        if tracing::dispatcher::has_been_set() {
-            tracing::error!("Application error: {:?}", e);
-        } else {
-            eprintln!("Error: {:?}", e);
-        }
-        std::process::exit(1);
-    }
-    // If run() completes without error, exit(0) is implicit.
-    // If run() itself panics (which it shouldn't for recoverable errors),
-    // the panic_hook will log it, and the process will abort.
-}
-</file>
-
 <file path="Cargo.toml">
 [package]
 name = "twars-url2md"
@@ -4545,12 +4592,15 @@ features = ["std", "perf-dfa", "unicode-perl"]
 [dependencies.reqwest]
 version = "0.12"
 default-features = false
-features = ["rustls-tls-native-roots", "gzip", "brotli", "deflate"]
+features = ["rustls-tls-native-roots", "gzip", "brotli", "deflate", "native-tls"]
 
 
 [dependencies.tokio]
 version = "1.36"
 features = ["full"]
+
+[dependencies.curl]
+version = "0.4"
 
 
 [dependencies.url]
