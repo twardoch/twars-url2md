@@ -108,19 +108,13 @@ async fn process_url_internal(
 }
 
 /// Process a URL without returning content
-pub async fn process_url_async(
-    url: &str,
-    output_path: Option<PathBuf>,
-) -> Result<()> {
+pub async fn process_url_async(url: &str, output_path: Option<PathBuf>) -> Result<()> {
     process_url_internal(url, output_path, false).await?;
     Ok(())
 }
 
 /// Process a URL and return the content
-pub async fn process_url_with_content(
-    url: &str,
-    output_path: Option<PathBuf>,
-) -> Result<String> {
+pub async fn process_url_with_content(url: &str, output_path: Option<PathBuf>) -> Result<String> {
     match process_url_internal(url, output_path, true).await? {
         Some(content) => Ok(content),
         None => Ok(String::new()),
@@ -252,7 +246,7 @@ pub(crate) async fn process_url_with_retry(
 
     let url_owned = url.to_string();
     let path_clone = output_path.clone();
-    
+
     retry_operation(
         || process_url_async(&url_owned, path_clone.clone()),
         max_retries,
@@ -356,7 +350,6 @@ mod tests {
     use monolith::core::Options;
     use std::fs;
     use tempfile::TempDir;
-
 
     #[tokio::test]
     async fn test_skip_non_html_urls() {

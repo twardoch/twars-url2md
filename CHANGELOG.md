@@ -8,15 +8,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Git-tag-based semversioning**: Version is now automatically determined from git tags during build
+- **Comprehensive test suite**: Added extensive unit tests, integration tests, and benchmark tests
+- **Multi-platform CI/CD**: GitHub Actions now builds for Linux (x86_64, aarch64, musl), macOS (x86_64, aarch64), and Windows (x86_64)
+- **Security audit**: Added automated security auditing with cargo-audit
+- **Code coverage**: Integrated code coverage reporting with tarpaulin
+- **Cross-compilation support**: Added support for cross-compilation to multiple architectures
+- **Local build scripts**: Added convenient scripts for building, testing, and releasing
+- **Installation script**: Added one-liner installation script for easy setup
+- **Release automation**: Automated release process with GitHub Actions
+- **Enhanced documentation**: Updated README with comprehensive installation options
 - Comprehensive test suite (`issues/issuetest.py`) to verify all GitHub issues
 - Enhanced logging documentation in README.md
 
+### Changed
+- **Improved CI/CD pipeline**: Enhanced GitHub Actions workflow with better error handling and multi-platform support
+- **Updated dependencies**: Refreshed dependencies to latest versions
+- **Enhanced error handling**: Better error messages and retry logic
+- **Improved performance**: Optimized build configuration for better release binaries
+- Updated RUST_LOG documentation to show correct module-specific syntax
+
 ### Fixed
+- **Build system**: Fixed issues with version handling and build metadata
+- **Test reliability**: Improved test stability and coverage
+- **Documentation**: Fixed various documentation issues and outdated information
 - Fixed doctest failures by adding `extract_all` field to Config examples
 - Clarified default output behavior (creates files in current directory when no -o flag)
-
-### Changed
-- Updated RUST_LOG documentation to show correct module-specific syntax
 
 ### Verified Issues (Complete Resolution)
 
