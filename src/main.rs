@@ -11,7 +11,6 @@ use anyhow::Result;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 fn run() -> Result<()> {
-
     // Parse command-line arguments
     let cli = twars_url2md::cli::Cli::parse_args()?;
 
@@ -30,7 +29,6 @@ fn run() -> Result<()> {
         .with(fmt::layer())
         .with(filter_layer)
         .init();
-
 
     // Collect URLs from all input sources
     let urls = cli.collect_urls()?;

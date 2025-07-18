@@ -1,11 +1,15 @@
 # twars-url2md
 
 [![Crates.io](https://img.shields.io/crates/v/twars-url2md)](https://crates.io/crates/twars-url2md)
+[![Downloads](https://img.shields.io/crates/d/twars-url2md)](https://crates.io/crates/twars-url2md)
 [![Documentation](https://docs.rs/twars-url2md/badge.svg)](https://docs.rs/twars-url2md)
+[![GitHub Release](https://img.shields.io/github/v/release/twardoch/twars-url2md)](https://github.com/twardoch/twars-url2md/releases/latest)
 ![GitHub Release Date](https://img.shields.io/github/release-date/twardoch/twars-url2md)
 ![GitHub commits since latest release](https://img.shields.io/github/commits-since/twardoch/twars-url2md/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/twardoch/twars-url2md/actions/workflows/ci.yml/badge.svg)](https://github.com/twardoch/twars-url2md/actions)
+[![Security audit](https://img.shields.io/badge/security-audit-green)](https://github.com/twardoch/twars-url2md/actions)
+[![Multi-platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-blue)](https://github.com/twardoch/twars-url2md/releases)
 
 **`twars-url2md`** is a fast and robust command-line tool and Rust library that fetches web pages, intelligently cleans up their HTML content, and converts them into clean, readable Markdown files. It's designed for high-performance batch processing, making it ideal for archiving, research, content conversion, or any task requiring structured text from web sources.
 
@@ -92,27 +96,47 @@ You can install `twars-url2md` using pre-compiled binaries (recommended for most
 
 ### Pre-compiled Binaries (Recommended)
 
+#### Quick Installation (One-liner)
+
+**Linux and macOS:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/twardoch/twars-url2md/main/install.sh | bash
+```
+
+**Or with custom install directory:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/twardoch/twars-url2md/main/install.sh | bash -s -- --install-dir ~/.local/bin
+```
+
+#### Manual Installation
+
 Download the latest release for your platform from the [GitHub Releases page](https://github.com/twardoch/twars-url2md/releases/latest).
 
-**macOS (Universal binary for Intel and Apple Silicon):**
+**macOS:**
 
 ```bash
-# Download and extract
-curl -L https://github.com/twardoch/twars-url2md/releases/latest/download/twars-url2md-macos-universal.tar.gz | tar xz
-# Move to a directory in your PATH, e.g., /usr/local/bin
+# Intel x86_64
+curl -L https://github.com/twardoch/twars-url2md/releases/latest/download/twars-url2md-macos-x86_64.tar.gz | tar xz
+# Apple Silicon (M1/M2)
+curl -L https://github.com/twardoch/twars-url2md/releases/latest/download/twars-url2md-macos-aarch64.tar.gz | tar xz
+# Move to a directory in your PATH
 sudo mv twars-url2md /usr/local/bin/
 ```
 
-**Linux (x86_64):**
+**Linux:**
 
 ```bash
-# Download and extract
+# x86_64
 curl -L https://github.com/twardoch/twars-url2md/releases/latest/download/twars-url2md-linux-x86_64.tar.gz | tar xz
-# Move to a directory in your PATH, e.g., /usr/local/bin
+# ARM64 (aarch64)
+curl -L https://github.com/twardoch/twars-url2md/releases/latest/download/twars-url2md-linux-aarch64.tar.gz | tar xz
+# Static binary (musl)
+curl -L https://github.com/twardoch/twars-url2md/releases/latest/download/twars-url2md-linux-x86_64-musl.tar.gz | tar xz
+# Move to a directory in your PATH
 sudo mv twars-url2md /usr/local/bin/
 ```
 
-**Windows (x86_64, using PowerShell):**
+**Windows:**
 
 ```powershell
 # Download
