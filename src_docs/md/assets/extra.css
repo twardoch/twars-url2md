@@ -1,0 +1,88 @@
+/* Custom CSS for twars-url2md documentation */
+
+/* Code block improvements */
+.highlight pre {
+    padding: 1em;
+    border-radius: 0.3em;
+    font-size: 0.85em;
+}
+
+/* Custom admonition styles */
+.md-typeset .admonition.example {
+    border-color: #448aff;
+}
+
+.md-typeset .admonition.example > .admonition-title {
+    background-color: rgba(68, 138, 255, 0.1);
+    border-color: #448aff;
+}
+
+.md-typeset .admonition.example > .admonition-title::before {
+    background-color: #448aff;
+    -webkit-mask-image: var(--md-admonition-icon--example);
+    mask-image: var(--md-admonition-icon--example);
+}
+
+/* Command line styling */
+.command-line {
+    background-color: var(--md-code-bg-color);
+    border-left: 4px solid var(--md-primary-fg-color);
+    padding: 0.8em 1em;
+    margin: 1em 0;
+    font-family: var(--md-code-font);
+    border-radius: 0.1em;
+}
+
+/* Performance metrics styling */
+.performance-metric {
+    display: inline-block;
+    background: linear-gradient(45deg, #1976d2, #42a5f5);
+    color: white;
+    padding: 0.2em 0.6em;
+    border-radius: 0.3em;
+    font-weight: bold;
+    font-size: 0.9em;
+    margin: 0.1em;
+}
+
+/* Feature highlights */
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.feature-card {
+    border: 1px solid var(--md-default-fg-color--lighter);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    background: var(--md-default-bg-color);
+}
+
+.feature-card h3 {
+    margin-top: 0;
+    color: var(--md-primary-fg-color);
+}
+
+/* Architecture diagram improvements */
+.arch-diagram {
+    text-align: center;
+    margin: 2rem 0;
+    padding: 1rem;
+    background: var(--md-code-bg-color);
+    border-radius: 0.5rem;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .feature-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .performance-metric {
+        display: block;
+        margin: 0.2em 0;
+        text-align: center;
+    }
+}
