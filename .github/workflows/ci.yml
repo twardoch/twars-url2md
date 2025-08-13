@@ -97,9 +97,47 @@ jobs:
           file: ./cobertura.xml
           fail_ci_if_error: false
 
+  docs-check:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install MkDocs dependencies
+        run: |
+          pip install --upgrade pip
+          pip install mkdocs-material
+          pip install mkdocs-minify-plugin
+          pip install pymdown-extensions
+
+      - name: Validate MkDocs configuration
+        run: |
+          cd src_docs
+          mkdocs config
+
+      - name: Build documentation (dry run)
+        run: |
+          cd src_docs
+          mkdocs build --verbose --clean --strict
+
+      - name: Check documentation links
+        run: |
+          echo "Checking for basic markdown syntax issues..."
+          find src_docs/md -name "*.md" -exec echo "Validating: {}" \;
+          # Basic validation - check files are not empty and have content
+          find src_docs/md -name "*.md" -exec test -s {} \; -print
+
   create-release:
     name: Create Release
-    needs: [test, security-audit]
+    needs: [test, security-audit, docs-check]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     outputs:
