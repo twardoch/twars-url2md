@@ -28,21 +28,33 @@
 //! # }
 //! ```
 
-use anyhow::{Context, Result};
+// this_file: src/url.rs
+
+use anyhow::Result;
 use html5ever::parse_document;
 use html5ever::tendril::TendrilSink;
 use linkify::{LinkFinder, LinkKind};
 use markup5ever_rcdom as rcdom;
-// anyhow::Context is already imported via `use anyhow::{Context, Result};`
-// use rayon::prelude::*; // No longer used after removing extract_urls_from_html_efficient
-use regex;
+use once_cell::sync::Lazy;
+use regex::Regex;
 use std::path::{Path, PathBuf};
 pub use url::Url;
+
+static FILE_PATH_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^(file://)?(/[^/\s]+(?:/[^/\s]+)*\.html?)$").expect("file path regex must compile")
+});
+
+static LINK_FINDER: Lazy<LinkFinder> = Lazy::new(|| {
+    let mut finder = LinkFinder::new();
+    finder.kinds(&[LinkKind::Url]);
+    finder
+});
 
 /// Create an output path for a URL based on its structure.
 ///
 /// This function generates a filesystem path that mirrors the URL structure,
 /// making it easy to organize downloaded content hierarchically.
+/// It only computes the path; callers should create parent directories right before writing files.
 ///
 /// # Arguments
 ///
@@ -94,10 +106,6 @@ pub fn create_output_path(url: &Url, base_dir: &Path) -> Result<PathBuf> {
     for segment in segments_for_dirs {
         dir_path_full = dir_path_full.join(segment);
     }
-
-    // Ensure directories exist on disk
-    std::fs::create_dir_all(&dir_path_full)
-        .with_context(|| format!("Failed to create directory: {}", dir_path_full.display()))?;
 
     // Determine filename
     let filename = if url.path().ends_with('/') || path_segments.is_empty() {
@@ -154,17 +162,12 @@ pub fn extract_urls_from_text(text: &str, base_url: Option<&str>) -> Vec<String>
     let estimated_capacity = text.len() / 100; // More conservative estimate
     let mut urls = Vec::with_capacity(estimated_capacity.min(1000));
 
-    // Add logic to identify local file paths
-    // This regex is static and assumed to be valid. Panicking here is acceptable if it's malformed.
-    let file_regex = regex::Regex::new(r"^(file://)?(/[^/\s]+(?:/[^/\s]+)*\.html?)$")
-        .expect("Invalid static regex for file paths");
-
     // Process text lines to extract URLs and local file paths
     for line in text.lines() {
         let line = line.trim();
 
         // Check if line is a local file path
-        if file_regex.is_match(line) {
+        if FILE_PATH_REGEX.is_match(line) {
             // Convert to file:// URL format if not already
             let file_url = if line.starts_with("file://") {
                 line.to_string()
@@ -200,26 +203,12 @@ fn process_text_chunk(text: &str, base_url: Option<&str>, urls: &mut Vec<String>
                     e,
                     trimmed_text.chars().take(50).collect::<String>()
                 );
-                let finder = LinkFinder::new();
-                urls.extend(finder.links(trimmed_text).filter_map(|link| {
-                    if link.kind() == &LinkKind::Url {
-                        try_parse_url(link.as_str(), base_url)
-                    } else {
-                        None
-                    }
-                }));
+                extend_with_linkified_urls(trimmed_text, base_url, urls);
             }
         }
     } else {
         // Standard LinkFinder for non-HTML-like text
-        let finder = LinkFinder::new();
-        urls.extend(finder.links(trimmed_text).filter_map(|link| {
-            if link.kind() == &LinkKind::Url {
-                try_parse_url(link.as_str(), base_url)
-            } else {
-                None
-            }
-        }));
+        extend_with_linkified_urls(trimmed_text, base_url, urls);
     }
 }
 
@@ -274,19 +263,22 @@ pub fn extract_urls_from_html(html: &str, base_url: Option<&str>) -> Result<Vec<
     }
 
     // Use LinkFinder as a fallback to catch any remaining URLs in text content
-    let finder = LinkFinder::new();
-    for link in finder.links(html) {
+    extend_with_linkified_urls(html, base_url, &mut urls);
+
+    // Deduplicate and sort URLs
+    urls.sort();
+    urls.dedup();
+    Ok(urls)
+}
+
+fn extend_with_linkified_urls(text: &str, base_url: Option<&str>, urls: &mut Vec<String>) {
+    for link in LINK_FINDER.links(text) {
         if link.kind() == &LinkKind::Url {
             if let Some(url) = try_parse_url(link.as_str(), base_url) {
                 urls.push(url);
             }
         }
     }
-
-    // Deduplicate and sort URLs
-    urls.sort();
-    urls.dedup();
-    Ok(urls)
 }
 
 fn try_parse_url(url_str: &str, base_url: Option<&str>) -> Option<String> {

@@ -1,4 +1,53 @@
 // this_file: build.rs
+//
+// Cargo Build Script for twars-url2md
+//
+// PURPOSE:
+// This build script runs before compilation and performs two critical tasks:
+//
+// 1. VERSION EXTRACTION FROM GIT
+//    Automatically determines the package version from git tags, enabling
+//    semantic versioning without manual Cargo.toml updates.
+//
+// 2. BUILD METADATA GENERATION
+//    Captures build-time information (timestamp, rustc version, etc.) using
+//    the `built` crate, making it available to the binary via built.rs.
+//
+// GIT VERSION LOGIC:
+//
+// The script tries these strategies in order:
+//
+// 1. Exact Tag Match: `git describe --tags --exact-match`
+//    - If HEAD is exactly at a tag (e.g., "v1.4.3")
+//    - Returns: "1.4.3" (strips 'v' prefix)
+//    - Example: When you run `git tag v1.5.0 && git checkout v1.5.0`
+//
+// 2. Development Version: `git describe --tags --always --dirty`
+//    - If HEAD is past a tag (commits since last tag)
+//    - Parses format: "v1.4.3-5-g1234567" or "v1.4.3-dirty"
+//    - Returns: "1.4.3-dev.5.g1234567" or "1.4.3-dev.0.g1234567-dirty"
+//    - Example outputs:
+//      * "1.4.3-dev.2.gabcd123" = 2 commits past v1.4.3
+//      * "1.4.3-dev.0.gabcd123-dirty" = at v1.4.3 but with uncommitted changes
+//
+// 3. Fallback: Returns "0.0.0-dev"
+//    - Used when git is unavailable or no tags exist
+//    - Ensures builds always succeed even without git history
+//
+// REBUILD TRIGGERS:
+// The build script re-runs when these files change:
+// - build.rs itself (this file)
+// - .git/HEAD (branch switches, commits)
+// - .git/refs/ (tag or branch updates)
+//
+// USAGE IN CODE:
+// The version is available via the CARGO_PKG_VERSION environment variable:
+//   const VERSION: &str = env!("CARGO_PKG_VERSION");
+//
+// Build metadata is available via the generated built.rs module:
+//   use crate::built;
+//   println!("Built at: {}", built::BUILT_TIME_UTC);
+//
 
 use std::process::Command;
 

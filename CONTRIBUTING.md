@@ -1,3 +1,7 @@
+---
+this_file: CONTRIBUTING.md
+---
+
 # Contributing to twars-url2md
 
 Thanks for your interest in contributing to twars-url2md. This document explains how to contribute effectively.
@@ -65,6 +69,13 @@ cargo test
 cargo run -- --help
 ```
 
+For a reproducible pipeline that mirrors CI:
+
+```bash
+./scripts/build.sh --dev     # format + lint + test + release build
+./scripts/build.sh --quick   # fast release build when you only need binaries
+```
+
 ### Recommended Tools
 
 - **rustfmt**: Code formatting
@@ -79,6 +90,12 @@ cargo run -- --help
   ```bash
   cargo install cargo-edit
   ```
+
+### Preferred Helper Scripts
+
+- `./scripts/build.sh --ci` – clean build plus tests; use before opening a PR.
+- `./scripts/lint.sh --fix` – run formatters/clippy with uniform flags.
+- `./scripts/test.sh --unit-only` – reproduce CI suites locally without extra wiring.
 
 ## Making Contributions
 
@@ -99,7 +116,7 @@ cargo run -- --help
    git checkout -b feature/your-feature-name
    ```
 3. Make changes following coding standards
-4. Write/update tests
+4. Write/update tests and keep `./scripts/build.sh --ci` passing locally
 5. Update documentation if needed
 6. Commit with clear messages
 7. Push to your fork and submit a pull request
@@ -126,7 +143,7 @@ For fixing reported issues:
 4. **Verify**:
    ```bash
    python3 issues/issuetest.py
-   cargo test --all-features
+   ./scripts/build.sh --ci
    ```
 
 5. **Document**:
@@ -232,8 +249,10 @@ tests/
 ### Running Tests
 
 ```bash
+./scripts/build.sh --ci              # Clean build + lint + full tests
+./scripts/test.sh --unit-only  # Unit tests (fast loop)
 cargo test                    # All tests
-cargo test --all-features      # With all features
+cargo test --all-features     # With all features
 cargo test test_name          # Specific test
 cargo test -- --nocapture     # With output
 cargo bench                   # Benchmarks
@@ -312,9 +331,8 @@ fn test_url_extraction() {
 
 2. Run quality checks:
    ```bash
-   cargo fmt
-   cargo clippy --all-targets --all-features
-   cargo test
+   ./scripts/build.sh --dev                 # format + lint + test + release build
+   ./scripts/lint.sh --fix          # optional targeted cleanup
    cargo doc --no-deps
    ```
 

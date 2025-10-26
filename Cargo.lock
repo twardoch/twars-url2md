@@ -2471,7 +2471,7 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "twars-url2md"
-version = "0.0.0"
+version = "1.4.3"
 dependencies = [
  "anyhow",
  "base64",
@@ -2491,6 +2491,7 @@ dependencies = [
  "mockito",
  "monolith",
  "num_cpus",
+ "once_cell",
  "rayon",
  "regex",
  "scraper",

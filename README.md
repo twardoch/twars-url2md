@@ -286,7 +286,7 @@ Add it to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-twars-url2md = "0.3.0" # Replace with the latest version from crates.io
+twars-url2md = "1.4.3" # Replace with the latest version from crates.io
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 ```
@@ -471,25 +471,25 @@ The project includes convenient build scripts for different scenarios:
 
 *   **Quick build (fastest, no checks):**
     ```bash
-    ./build.sh --quick
+    ./scripts/build.sh --quick
     ```
     Skips formatting, linting, and tests. Just builds the release binary (~2-3 minutes).
 
 *   **Full build (recommended for development):**
     ```bash
-    ./build.sh
+    ./scripts/build.sh
     ```
     Runs formatting, linting, tests, and builds release binary (default behavior).
 
 *   **CI/CD build:**
     ```bash
-    ./build.sh --ci
+    ./scripts/build.sh --ci
     ```
     Clean build with tests, ideal for continuous integration.
 
 *   **Production release:**
     ```bash
-    ./build.sh --release
+    ./scripts/build.sh --release
     ```
     Clean build with binary stripping for smallest size.
 
@@ -498,7 +498,7 @@ The project includes convenient build scripts for different scenarios:
     - Release build: `cargo build --release` (output: `target/release/twars-url2md`)
     - Run directly: `cargo run -- -i urls.txt -o ./output`
 
-Run `./build.sh --help` to see all available options and modes.
+Run `./scripts/build.sh --help` to see all available options and modes.
 
 ### Code Quality & Formatting
 

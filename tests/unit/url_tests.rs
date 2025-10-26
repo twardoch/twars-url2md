@@ -353,7 +353,14 @@ mod output_path_tests {
         let path = create_output_path(&url, temp_dir.path())?;
 
         assert!(path.to_string_lossy().contains("unknown"));
-        assert!(path.exists() || path.parent().unwrap().exists());
+        assert!(
+            !path.exists(),
+            "Path should not exist until content is written"
+        );
+        assert!(
+            !path.parent().unwrap().exists(),
+            "Directories are created lazily during write operations"
+        );
 
         Ok(())
     }
@@ -364,12 +371,16 @@ mod output_path_tests {
         let url = Url::parse("https://example.com/a/b/c/file")?;
         let path = create_output_path(&url, temp_dir.path())?;
 
-        // Verify all parent directories were created
-        assert!(path.parent().unwrap().exists());
-        assert!(temp_dir.path().join("example.com").exists());
-        assert!(temp_dir.path().join("example.com/a").exists());
-        assert!(temp_dir.path().join("example.com/a/b").exists());
-        assert!(temp_dir.path().join("example.com/a/b/c").exists());
+        // Verify computed structure without actually touching the filesystem yet
+        assert!(
+            path.to_string_lossy()
+                .ends_with("example.com/a/b/c/file.md"),
+            "Path should mirror URL structure"
+        );
+        assert!(
+            !path.parent().unwrap().exists(),
+            "Directories are created just-in-time during file writes"
+        );
 
         Ok(())
     }

@@ -1,3 +1,7 @@
+---
+this_file: DEVELOPMENT.md
+---
+
 # Development Guide
 
 This guide explains how to work with the `twars-url2md` codebase. It covers setup, structure, building, testing, and contributing.
@@ -71,104 +75,74 @@ twars-url2md/
 
 ## Building and Testing
 
-### Quick Development Commands
+### Preferred Build Pipeline
+
+Use `./scripts/build.sh` to get consistent formatting, linting, tests, and builds:
 
 ```bash
-# Build debug version
-cargo build
-
-# Build release version
-cargo build --release
-
-# Run all tests
-cargo test
-
-# Run tests with output
-cargo test -- --nocapture
-
-# Run specific test
-cargo test test_extract_urls_from_text
-
-# Run clippy linter
-cargo clippy --all-targets --all-features
-
-# Format code
-cargo fmt
-
-# Check formatting
-cargo fmt --check
+./scripts/build.sh --quick      # Fast release build, skips format/lint/test
+./scripts/build.sh --dev        # Format, lint, test, release build (default)
+./scripts/build.sh --ci         # Clean build + tests, mirrors CI
+./scripts/build.sh --release    # Clean, strip, and package for distribution
 ```
 
-### Using the Build Scripts
+Run `./scripts/build.sh --help` to see full usage plus the `TWARS_BUILD_SKIP_CARGO=1` dry-run flag that powers automated tests.
 
-Scripts automate common tasks:
+### Cargo Basics
+
+Direct cargo commands are still helpful for quick experiments:
 
 ```bash
-# Build the project
-./scripts/build.sh
-
-# Run comprehensive tests
-./scripts/test.sh
-
-# Run only unit tests
-./scripts/test.sh --unit-only
-
-# Run with benchmarks
-./scripts/test.sh --benchmark
-
-# Prepare a release (dry run)
-./scripts/release.sh --version 1.5.0 --dry-run
+cargo build                    # Debug build
+cargo build --release          # Release build
+cargo test -- --nocapture      # Run tests with output
+cargo test test_extract_url    # Focused test
+cargo clippy --all-targets     # Lint
+cargo fmt                      # Format
+cargo fmt --check              # Format check
 ```
+
+### Helper Scripts
+
+- `./scripts/lint.sh [--fix|--verbose]` – wraps `cargo fmt` and `cargo clippy` with consistent logging.
+- `./scripts/test.sh [--unit-only|--benchmark|--no-clippy]` – drives the full Rust test matrix used by CI.
+- `./scripts/build.sh --quick|--dev|--ci|--release` – canonical builder covering local dev, CI parity, and release packaging.
+- `./scripts/generate-llms.sh` – optional repo snapshot generator (runs `npx repomix` when available).
+- `./scripts/release.sh --version 1.5.0 [--dry-run]` – orchestrates tagging and publishing workflows.
 
 ## Scripts
 
-### build.sh
+### `scripts/lint.sh`
 
-Builds the project and extracts version information from git tags.
+Runs `cargo fmt` and `cargo clippy` with optional `--fix` and `--verbose` flags. Use this when you only need quality checks without building.
 
-**Usage:**
+### `scripts/test.sh`
+
+Executes the full Rust test suite. Flags include `--unit-only`, `--integration-only`, `--benchmark`, `--no-clippy`, `--no-format`, and `--verbose` to match CI permutations.
+
+### `scripts/build.sh`
+
+Bash entrypoint that offers four modes:
+
+- `--quick`: release build only.
+- `--dev`: format + clippy + tests + release build (default).
+- `--ci`: clean + dev steps (mirrors CI configuration).
+- `--release`: clean + dev steps + strip + copy artifact into `builds/`.
+
+Set `TWARS_BUILD_SKIP_CARGO=1` to print planned commands without executing them (used by smoke tests).
+
+### `scripts/generate-llms.sh`
+
+Optional helper that generates `llms.txt` via `npx repomix` when Node.js tooling is available. Safe to skip on systems without `npx`.
+
+### `scripts/release.sh`
+
+Automates release tagging and publishing. Typical flow:
+
 ```bash
-./scripts/build.sh
+./scripts/release.sh --version 1.5.0 --dry-run   # verify pipeline
+./scripts/release.sh --version 1.5.0            # actual release
 ```
-
-**Features:**
-- Cleans previous builds
-- Extracts git version information
-- Builds optimized release binary
-- Copies binary to `builds/` directory with version info
-
-### test.sh
-
-Runs the complete test suite with various options.
-
-**Usage:**
-```bash
-./scripts/test.sh [OPTIONS]
-```
-
-**Options:**
-- `--unit-only`: Run only unit tests
-- `--integration-only`: Run only integration tests  
-- `--benchmark`: Run benchmark tests
-- `--no-clippy`: Skip clippy linting
-- `--no-format`: Skip format checking
-- `--verbose`: Enable verbose output
-
-### release.sh
-
-Handles the complete release process including git tagging.
-
-**Usage:**
-```bash
-./scripts/release.sh --version 1.5.0 [OPTIONS]
-```
-
-**Options:**
-- `--version VERSION`: Version to release (required)
-- `--dry-run`: Show what would be done without making changes
-- `--skip-tests`: Skip running tests
-- `--skip-build`: Skip building the project
-- `--force`: Force release even if working directory is dirty
 
 ## Release Process
 

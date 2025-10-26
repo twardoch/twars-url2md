@@ -100,6 +100,13 @@ run_test() {
 TESTS_PASSED=0
 TESTS_FAILED=0
 
+# Build script help smoke test (fast, uses stub cargo)
+if run_test "build script help" "bash tests/scripts_build_help_test.sh"; then
+    ((TESTS_PASSED++))
+else
+    ((TESTS_FAILED++))
+fi
+
 # Format checking
 if [ "$RUN_FORMAT_CHECK" = true ]; then
     if run_test "format check" "cargo fmt --check $CARGO_VERBOSE_FLAG"; then
