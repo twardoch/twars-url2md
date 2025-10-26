@@ -4,12 +4,6 @@
 
 set -euo pipefail
 
-# Optional: Generate llms.txt if repomix is available
-if command -v npx >/dev/null 2>&1 && npx -y repomix --version >/dev/null 2>&1; then
-    echo "📦 Generating llms.txt with repomix..."
-    npx repomix -o llms.txt . 2>/dev/null || echo "⚠️  Repomix generation failed, continuing..."
-fi
-
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -58,11 +52,17 @@ check_prerequisites() {
 
 # Function to show help
 show_help() {
-    echo "Usage: $0 [OPTIONS]"
+    echo "Usage: $0 [OPTIONS|MODE]"
     echo ""
     echo "Build script for twars-url2md"
     echo ""
-    echo "OPTIONS:"
+    echo "BUILD MODES (convenient presets):"
+    echo "  --quick          Quick build: skip checks, just build release binary"
+    echo "  --dev            Development build: debug binary only (already exists via -d)"
+    echo "  --ci             CI mode: clean, test, release build (for CI/CD)"
+    echo "  --release        Release mode: clean, strip, optimize for distribution"
+    echo ""
+    echo "INDIVIDUAL OPTIONS:"
     echo "  -h, --help       Show this help message"
     echo "  -f, --format     Format code only"
     echo "  -l, --lint       Run linter only"
@@ -77,7 +77,10 @@ show_help() {
     echo "  --skip-test      Skip testing step"
     echo ""
     echo "Examples:"
-    echo "  $0                    # Run all steps"
+    echo "  $0                    # Run all steps (default)"
+    echo "  $0 --quick           # Fast build without checks"
+    echo "  $0 --ci              # CI/CD build"
+    echo "  $0 --release         # Production release build"
     echo "  $0 --format          # Format code only"
     echo "  $0 --test            # Run tests only"
     echo "  $0 --all --skip-test # Run all except tests"
@@ -95,6 +98,10 @@ ALL=true
 SKIP_FORMAT=false
 SKIP_LINT=false
 SKIP_TEST=false
+QUICK_MODE=false
+CI_MODE=false
+RELEASE_MODE=false
+STRIP_BINARY=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -102,6 +109,28 @@ while [[ $# -gt 0 ]]; do
     -h | --help)
         show_help
         exit 0
+        ;;
+    --quick)
+        QUICK_MODE=true
+        ALL=false
+        SKIP_FORMAT=true
+        SKIP_LINT=true
+        SKIP_TEST=true
+        BUILD=true
+        ;;
+    --ci)
+        CI_MODE=true
+        ALL=false
+        CLEAN=true
+        TEST=true
+        BUILD=true
+        ;;
+    --release)
+        RELEASE_MODE=true
+        ALL=false
+        CLEAN=true
+        BUILD=true
+        STRIP_BINARY=true
         ;;
     -f | --format)
         FORMAT=true
@@ -154,6 +183,12 @@ done
 
 # Main execution
 main() {
+    # Optional: Generate llms.txt if repomix is available (skip in quick mode)
+    if [[ $QUICK_MODE == false ]] && command -v npx >/dev/null 2>&1 && npx -y repomix --version >/dev/null 2>&1; then
+        echo "📦 Generating llms.txt with repomix..."
+        npx repomix -o llms.txt . 2>/dev/null || echo "⚠️  Repomix generation failed, continuing..."
+    fi
+
     print_status "Starting build process for twars-url2md..."
     check_prerequisites
 
@@ -213,6 +248,17 @@ main() {
         cargo build --release
         print_success "Release build completed"
         print_status "Binary location: target/release/twars-url2md"
+
+        # Strip binary if requested (release mode)
+        if [[ $STRIP_BINARY == true ]] && [[ -f "target/release/twars-url2md" ]]; then
+            if command_exists strip; then
+                print_status "Stripping binary for smaller size..."
+                strip target/release/twars-url2md
+                print_success "Binary stripped"
+            else
+                print_warning "strip command not found, skipping binary stripping"
+            fi
+        fi
 
         # Show binary info
         if [[ -f "target/release/twars-url2md" ]]; then

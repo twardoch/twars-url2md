@@ -370,4 +370,100 @@ if let Err(e) = built::write_built_file() {
 
 ---
 
+## Current Iteration: Build System Consolidation ✅ COMPLETED
+
+### Iteration Goals
+Complete Phase 1.2 by creating utility scripts and adding convenient build modes to improve developer experience.
+
+### Tasks Completed
+
+#### 1. Created scripts/lint.sh
+**Purpose**: Dedicated script for code quality checks (formatting and linting).
+
+**Features**:
+- `--fix` flag to automatically apply fixes
+- `--verbose` flag for detailed output
+- Runs `cargo fmt` for formatting
+- Runs `cargo clippy` for linting
+- Clean, colored output with status messages
+
+**Usage**:
+```bash
+./scripts/lint.sh           # Check format and run clippy
+./scripts/lint.sh --fix     # Auto-fix issues
+./scripts/lint.sh --verbose # Verbose output
+```
+
+**Test Result**: ✅ Passed - Successfully ran and passed all checks
+
+#### 2. Created scripts/generate-llms.sh
+**Purpose**: Generate llms.txt snapshot for AI tools using repomix.
+
+**Features**:
+- `-o/--output` flag to specify output file
+- `--force` flag to regenerate even if file exists
+- Checks for npx and repomix availability
+- Shows file size and line count after generation
+- Graceful error handling
+
+**Usage**:
+```bash
+./scripts/generate-llms.sh              # Generate llms.txt
+./scripts/generate-llms.sh -o custom.txt # Custom output
+./scripts/generate-llms.sh --force       # Force regeneration
+```
+
+**Test Result**: ✅ Working - Help output correct, prerequisites checked
+
+#### 3. Added Build Modes to build.sh
+**Added Modes**:
+- `--quick`: Quick build without checks (skip format, lint, test)
+- `--ci`: CI/CD mode (clean, test, build)
+- `--release`: Release mode (clean, build, strip binary)
+
+**Improvements**:
+- Moved repomix generation into main() function (no longer runs for --help)
+- Made repomix skip in quick mode for faster builds
+- Added binary stripping capability for release mode
+- Updated help text with clear mode descriptions
+
+**Usage**:
+```bash
+./build.sh --quick    # Fast build (2-3 minutes)
+./build.sh --ci       # CI/CD build with tests
+./build.sh --release  # Production release with stripping
+```
+
+**Test Results**:
+- ✅ Help output: Clean and informative
+- ✅ Script structure: Properly organized
+- ✅ Repomix: Now conditional, doesn't run for --help
+
+### Files Created
+1. **scripts/lint.sh** (120 lines): Code quality checks script
+2. **scripts/generate-llms.sh** (98 lines): LLM snapshot generation script
+
+### Files Modified
+1. **build.sh**: Added 3 build modes, moved repomix generation, added stripping
+
+### Benefits
+
+**Developer Experience**:
+- Clear separation of concerns (lint, generate, build)
+- Convenient preset modes for common workflows
+- Faster builds with --quick mode
+- Better help documentation
+
+**CI/CD**:
+- Dedicated --ci mode for continuous integration
+- Dedicated --release mode for production releases
+- Consistent build process across environments
+
+**Flexibility**:
+- Individual scripts can be used standalone
+- Build modes combine multiple steps intelligently
+- All existing flags still work
+
+---
+
 Last updated: 2025-10-26

@@ -32,6 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved build.rs with better git version detection and error handling
 
 ### Added
+- **Build system consolidation and improvement**:
+  - Added `scripts/lint.sh` for code quality checks with --fix and --verbose flags
+  - Added `scripts/generate-llms.sh` for AI snapshot generation with flexible options
+  - Added build modes to build.sh: --quick (fast build), --ci (CI/CD), --release (production)
+  - Added binary stripping capability for release mode
+  - Improved build.sh help documentation with clear mode descriptions
+  - Moved repomix generation to be conditional (no longer runs for --help)
 - **Git-tag-based semversioning**: Version is now automatically determined from git tags during build
 - Comprehensive project planning documentation (PLAN.md, TODO.md, WORK.md) for systematic cleanup and improvement
 - **Comprehensive test suite**: Added extensive unit tests, integration tests, and benchmark tests
