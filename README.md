@@ -467,37 +467,59 @@ This section provides guidance for setting up a development environment, buildin
 
 ### Building
 
-*   **Debug build:**
-    ```bash
-    cargo build
-    ```
-    The executable will be in `target/debug/twars-url2md`.
+The project includes convenient build scripts for different scenarios:
 
-*   **Release build (optimized):**
+*   **Quick build (fastest, no checks):**
     ```bash
-    cargo build --release
+    ./build.sh --quick
     ```
-    The executable will be in `target/release/twars-url2md`.
+    Skips formatting, linting, and tests. Just builds the release binary (~2-3 minutes).
 
-*   **Run directly with arguments (debug mode):**
+*   **Full build (recommended for development):**
     ```bash
-    cargo run -- -i urls.txt -o ./output
+    ./build.sh
     ```
+    Runs formatting, linting, tests, and builds release binary (default behavior).
+
+*   **CI/CD build:**
+    ```bash
+    ./build.sh --ci
+    ```
+    Clean build with tests, ideal for continuous integration.
+
+*   **Production release:**
+    ```bash
+    ./build.sh --release
+    ```
+    Clean build with binary stripping for smallest size.
+
+*   **Manual cargo commands:**
+    - Debug build: `cargo build` (output: `target/debug/twars-url2md`)
+    - Release build: `cargo build --release` (output: `target/release/twars-url2md`)
+    - Run directly: `cargo run -- -i urls.txt -o ./output`
+
+Run `./build.sh --help` to see all available options and modes.
 
 ### Code Quality & Formatting
 
 Consistent code style is maintained using `rustfmt`, and `clippy` is used for linting.
 
-*   **Format code:**
+*   **Run code quality checks:**
     ```bash
-    cargo fmt
+    ./scripts/lint.sh
     ```
+    Checks formatting and runs clippy linter.
 
-*   **Run linter (Clippy):**
+*   **Auto-fix issues:**
     ```bash
-    cargo clippy --all-targets --all-features -- -D warnings
+    ./scripts/lint.sh --fix
     ```
-    *(The `-D warnings` flag promotes warnings to errors, ensuring high code quality.)*
+    Automatically formats code and applies clippy auto-fixes.
+
+*   **Manual cargo commands:**
+    - Format code: `cargo fmt`
+    - Check formatting: `cargo fmt --check`
+    - Run linter: `cargo clippy --all-targets --all-features -- -D warnings`
 
 ### Testing
 

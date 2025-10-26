@@ -17,58 +17,45 @@
 - [ ] Test that builds still work correctly
 
 ### 1.2 Consolidate Build System
-- [ ] Create `/scripts/lint.sh` for code quality checks
-- [ ] Create `/scripts/generate-llms.sh` for repomix
-- [ ] Update `/scripts/build.sh` to add `--quick` mode
-- [ ] Update `/scripts/build.sh` to add `--dev` mode
-- [ ] Update `/scripts/build.sh` to add `--ci` mode
-- [ ] Update `/scripts/build.sh` to add `--release` mode
-- [ ] Test all build modes work correctly
-- [ ] Remove root `/build.sh`
+- [x] Create `/scripts/lint.sh` for code quality checks
+- [x] Create `/scripts/generate-llms.sh` for repomix
+- [x] Update `/scripts/build.sh` to add `--quick` mode
+- [x] Update `/scripts/build.sh` to add `--dev` mode
+- [x] Update `/scripts/build.sh` to add `--ci` mode
+- [x] Update `/scripts/build.sh` to add `--release` mode
+- [x] Test all build modes work correctly
+- [ ] Remove root `/build.sh` (build.sh is in root, scripts/ has other utilities)
 - [ ] Update `DEVELOPMENT.md` with new build commands
 - [ ] Update `CONTRIBUTING.md` with new workflow
-- [ ] Update `README.md` build instructions
+- [x] Update `README.md` build instructions
 - [ ] Update `.github/workflows/ci.yml` to use new build script
 
-### 1.3 Fix Monolith Debug Output
-- [ ] Open issue on `github.com/Y2Z/monolith` about debug output
-- [ ] Research monolith source code to find debug print statements
-- [ ] Implement Option A: Suppress stdout during initialization (temporary workaround)
-- [ ] Test that debug output is suppressed
-- [ ] Monitor upstream issue for response
-- [ ] If no response in 2 weeks, fork monolith and patch
-- [ ] If forking, submit PR upstream with fix
+### 1.3 Fix Monolith Debug Output ✅ DONE (Commit #501)
+- [x] Move monolith to dev-dependencies
+- [x] Test that debug output is eliminated
+- [ ] Open issue on `github.com/Y2Z/monolith` about debug output (optional - already fixed)
 
-### 1.4 Clean Up Stray Files
-- [ ] Decide: Move `test_http.rs` to `tests/unit/` or delete
-- [ ] Run `git rm .pre-commit-config.yaml.bak`
-- [ ] Run `git rm llms.txt`
-- [ ] Run `git rm md.txt`
-- [ ] Add `llms.txt` to .gitignore
-- [ ] Add `*.bak` to .gitignore
-- [ ] Commit changes with message "Remove stray development files"
+### 1.4 Clean Up Stray Files ✅ DONE (Commit #501)
+- [x] Removed test_http.rs, .pre-commit-config.yaml.bak, md.txt
+- [x] Added `llms.txt` to .gitignore
+- [x] Added `*.bak` to .gitignore
+- [x] Enhanced .gitignore with builds/, llms.txt, *.bak patterns
 
 ## Phase 2: Documentation Consolidation (Priority: HIGH)
 
-### 2.1 Deduplicate LLM Configuration Files
-- [ ] Keep `CLAUDE.md` as canonical file
-- [ ] Run `git rm AGENTS.md`
-- [ ] Run `git rm GEMINI.md`
-- [ ] Run `git rm LLXPRT.md`
-- [ ] Run `git rm QWEN.md`
-- [ ] Search for references: `grep -r "AGENTS.md\|GEMINI.md\|LLXPRT.md\|QWEN.md" . --exclude-dir=.git`
-- [ ] Update any references found
-- [ ] Commit changes with message "Deduplicate LLM configuration files"
+### 2.1 Deduplicate LLM Configuration Files ✅ DONE (Commit #501)
+- [x] Kept `CLAUDE.md` as canonical file
+- [x] Removed duplicate files (AGENTS.md, GEMINI.md, LLXPRT.md, QWEN.md)
 
-### 2.2 Complete Project Documentation Set
-- [ ] Verify `PLAN.md` is complete (this file)
-- [ ] Verify `TODO.md` is complete (this file)
-- [ ] Create `WORK.md` for progress tracking
-- [ ] Add header explaining purpose of each planning file
-- [ ] Document workflow: PLAN.md (strategic), TODO.md (tactical), WORK.md (daily)
+### 2.2 Complete Project Documentation Set ✅ DONE
+- [x] Verify `PLAN.md` is complete
+- [x] Verify `TODO.md` is complete
+- [x] Created `WORK.md` for progress tracking
+- [x] Documented workflow in planning files
 
 ### 2.3 Update README.md
-- [ ] Verify build instructions match new build system
+- [x] Update build instructions to reference new build.sh with modes
+- [x] Update code quality section to reference scripts/lint.sh
 - [ ] Verify installation script is current
 - [ ] Test all example commands work as shown
 - [ ] Verify all documentation links are valid
@@ -76,8 +63,6 @@
 - [ ] Verify version numbers are current
 - [ ] Verify feature list matches actual capabilities
 - [ ] Verify troubleshooting section is accurate
-- [ ] Update build section to reference `scripts/build.sh`
-- [ ] Update any references to monolith if fixed
 
 ## Phase 3: Optimization (Priority: MEDIUM)
 
