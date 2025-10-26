@@ -11,7 +11,7 @@
 [![Security audit](https://img.shields.io/badge/security-audit-green)](https://github.com/twardoch/twars-url2md/actions)
 [![Multi-platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-blue)](https://github.com/twardoch/twars-url2md/releases)
 
-**`twars-url2md`** is a fast and robust command-line tool and Rust library that fetches web pages, intelligently cleans up their HTML content, and converts them into clean, readable Markdown files. It's designed for high-performance batch processing, making it ideal for archiving, research, content conversion, or any task requiring structured text from web sources.
+**`twars-url2md`** fetches web pages, cleans up their HTML content, and converts them into clean, readable Markdown files. It's designed for high-performance batch processing, making it ideal for archiving, research, content conversion, or any task requiring structured text from web sources.
 
 ## Table of Contents
 
@@ -54,10 +54,9 @@
 
 `twars-url2md` takes one or more URLs (or local HTML files) as input. For each URL, it:
 
-1.  **Fetches** the web page content, handling various network conditions and CDN behaviors.
-2.  **Cleans** the HTML by removing scripts, styles, ads, and other unnecessary elements to isolate the core content, powered by [Monolith](https://github.com/Y2Z/monolith).
-3.  **Converts** the cleaned HTML into well-formatted Markdown using [htmd](https://github.com/letmutex/htmd).
-4.  **Saves** the Markdown to your local filesystem, either as individual files organized by URL structure or packed into a single file.
+1.  **Fetches** the web page content using libcurl, handling various network conditions and CDN behaviors with browser-like headers.
+2.  **Converts** the HTML into well-formatted Markdown using [htmd](https://github.com/letmutex/htmd).
+3.  **Saves** the Markdown to your local filesystem, either as individual files organized by URL structure or packed into a single file.
 
 ## Who It's For
 
@@ -73,22 +72,22 @@ This tool is valuable for:
 
 `twars-url2md` stands out due to its combination of speed, reliability, and the quality of its output:
 
-*   🚀 **High-Performance Processing**: Leverages asynchronous operations and adaptive concurrency (scaling with your CPU cores) for rapid batch processing of hundreds of URLs.
-*   📝 **Clean & Readable Markdown**: Produces well-structured Markdown that accurately represents the original content's hierarchy.
-*   🧹 **Advanced HTML Cleaning**: Goes beyond simple conversion by first pruning irrelevant HTML elements, resulting in focused and clutter-free Markdown.
-*   🔄 **Robust Error Handling**: Features automatic retries with exponential backoff for network issues and graceful recovery from HTML parsing errors, ensuring maximum success during large jobs.
-*   🔗 **Intelligent URL Handling**:
+*   **High-Performance Processing**: Leverages asynchronous operations and adaptive concurrency (scaling with your CPU cores) for rapid batch processing of hundreds of URLs.
+*   **Clean & Readable Markdown**: Produces well-structured Markdown that accurately represents the original content's hierarchy.
+*   **Advanced HTML Cleaning**: Goes beyond simple conversion by first pruning irrelevant HTML elements, resulting in focused and clutter-free Markdown.
+*   **Robust Error Handling**: Features automatic retries with exponential backoff for network issues and graceful recovery from HTML parsing errors, ensuring maximum success during large jobs.
+*   **Intelligent URL Handling**:
     *   Extracts URLs from plain text, HTML, and Markdown input.
     *   Resolves relative links if a base URL is provided.
     *   Supports processing local HTML files (`/path/to/file.html` or `file:///path/to/file.html`).
     *   Validates URLs and filters out non-HTTP(S) schemes.
-*   🛡️ **CDN Compatibility**: Designed to work smoothly with modern CDNs (like Cloudflare, Fastly, Akamai), employing browser-like headers and HTTP/2 support to avoid bot detection and connection issues.
-*   📂 **Flexible Input/Output**:
+*   **CDN Compatibility**: Designed to work smoothly with modern CDNs (like Cloudflare, Fastly, Akamai), employing browser-like headers and HTTP/2 support to avoid bot detection and connection issues.
+*   **Flexible Input/Output**:
     *   Accepts URLs via command-line arguments, input files, or standard input (stdin).
     *   Organizes output into a logical directory structure mirroring the source URLs or creates a single `.md` file.
     *   Can "pack" content from multiple URLs into one consolidated Markdown file, with original URLs as headers.
-*   🖥️ **Cross-Platform**: Works consistently on Windows, macOS, and Linux.
-*   🔧 **Configurable**: Offers options for verbose logging, custom output paths, and retry limits.
+*   **Cross-Platform**: Works consistently on Windows, macOS, and Linux.
+*   **Configurable**: Offers options for verbose logging, custom output paths, and retry limits.
 
 ## Installation
 

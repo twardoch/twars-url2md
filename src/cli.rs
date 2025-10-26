@@ -30,7 +30,7 @@ use crate::url::extract_urls_from_text;
     about = "Convert web pages to clean Markdown format while preserving content structure",
     long_about = "\
 A powerful CLI tool that fetches web pages and converts them to clean Markdown format \
-using Monolith for content extraction and htmd for conversion"
+using curl for fetching and htmd for HTML-to-Markdown conversion"
 )]
 pub struct Cli {
     /// Input file to process

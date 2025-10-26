@@ -1,6 +1,6 @@
 # Contributing to twars-url2md
 
-Thank you for your interest in contributing to twars-url2md! This document provides guidelines and instructions for contributing to the project.
+Thanks for your interest in contributing to twars-url2md. This document explains how to contribute effectively.
 
 ## Table of Contents
 
@@ -16,23 +16,23 @@ Thank you for your interest in contributing to twars-url2md! This document provi
 
 ## Code of Conduct
 
-By participating in this project, you agree to abide by our Code of Conduct:
+By participating, you agree to:
 
 - Be respectful and inclusive
-- Welcome newcomers and help them get started
-- Focus on constructive criticism
+- Help newcomers get started
+- Give constructive criticism
 - Accept feedback gracefully
-- Prioritize the community's best interests
+- Act in the community's best interest
 
 ## Getting Started
 
-1. **Fork the repository** on GitHub
-2. **Clone your fork** locally:
+1. Fork the repository on GitHub
+2. Clone your fork:
    ```bash
    git clone https://github.com/YOUR_USERNAME/twars-url2md.git
    cd twars-url2md
    ```
-3. **Add upstream remote**:
+3. Add upstream remote:
    ```bash
    git remote add upstream https://github.com/twardoch/twars-url2md.git
    ```
@@ -48,20 +48,20 @@ By participating in this project, you agree to abide by our Code of Conduct:
 ### Initial Setup
 
 ```bash
-# Install Rust (if not already installed)
+# Install Rust if needed
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Clone and setup
 git clone https://github.com/twardoch/twars-url2md.git
 cd twars-url2md
 
-# Build the project
+# Build
 cargo build
 
-# Run tests
+# Test
 cargo test
 
-# Run the tool
+# Run
 cargo run -- --help
 ```
 
@@ -71,11 +71,11 @@ cargo run -- --help
   ```bash
   rustup component add rustfmt
   ```
-- **clippy**: Rust linter
+- **clippy**: Linting
   ```bash
   rustup component add clippy
   ```
-- **cargo-edit**: Managing dependencies
+- **cargo-edit**: Dependency management
   ```bash
   cargo install cargo-edit
   ```
@@ -84,64 +84,58 @@ cargo run -- --help
 
 ### Types of Contributions
 
-We welcome various types of contributions:
-
-1. **Bug Fixes**: Fix issues reported in GitHub Issues
-2. **Features**: Add new functionality (discuss major features first)
-3. **Documentation**: Improve docs, add examples, fix typos
-4. **Tests**: Increase test coverage
-5. **Performance**: Optimize code for better performance
-6. **Refactoring**: Improve code structure and maintainability
+- Bug fixes
+- New features (discuss major ones first)
+- Documentation improvements
+- Test coverage increases
+- Performance optimizations
+- Code refactoring
 
 ### Contribution Workflow
 
-1. **Create an issue** (if one doesn't exist) describing what you plan to work on
-2. **Create a feature branch**:
+1. Create an issue (if none exists) describing your plan
+2. Create a feature branch:
    ```bash
    git checkout -b feature/your-feature-name
    ```
-3. **Make your changes** following our coding standards
-4. **Write/update tests** for your changes
-5. **Update documentation** if needed
-6. **Commit your changes** with clear commit messages
-7. **Push to your fork** and submit a pull request
+3. Make changes following coding standards
+4. Write/update tests
+5. Update documentation if needed
+6. Commit with clear messages
+7. Push to your fork and submit a pull request
 
 ### Issue Resolution Process
 
-When working on reported issues:
+For fixing reported issues:
 
-1. **Analyze the Issue**:
-   - Read the issue description carefully
-   - Reproduce the problem locally
-   - Document your findings
+1. **Analyze**:
+   - Read the issue carefully
+   - Reproduce locally
+   - Document findings
 
-2. **Create Verification Tests**:
-   - Add tests to `issues/issuetest.py` for the specific issue
-   - Ensure tests fail before implementing the fix
-   - Tests should cover edge cases
+2. **Create verification tests**:
+   - Add tests to `issues/issuetest.py`
+   - Ensure tests fail before the fix
+   - Cover edge cases
 
-3. **Implement the Fix**:
-   - Make minimal changes to resolve the issue
-   - Follow existing code patterns
-   - Add debug logging if helpful
+3. **Implement fix**:
+   - Make minimal changes
+   - Follow existing patterns
+   - Add debug logging if useful
 
-4. **Verify Resolution**:
+4. **Verify**:
    ```bash
-   # Run the issue verification suite
    python3 issues/issuetest.py
-   
-   # Run all Rust tests
    cargo test --all-features
    ```
 
-5. **Document the Fix**:
-   - Update CHANGELOG.md with detailed resolution notes
-   - Move the issue file to `issues/resolved/`
-   - Update any affected documentation
+5. **Document**:
+   - Update CHANGELOG.md
+   - Move issue file to `issues/resolved/`
+   - Update affected documentation
 
-6. **Example Issue Resolution**:
+6. **Example**:
    ```python
-   # In issues/issuetest.py
    def test_issue_104():
        """Test Issue #104: Adobe CDN timeout fix"""
        result = subprocess.run(
@@ -149,15 +143,15 @@ When working on reported issues:
            input='https://helpx.adobe.com/pdf/illustrator_reference.pdf\n',
            capture_output=True,
            text=True,
-           timeout=10  # Should complete quickly now
+           timeout=10
        )
        assert result.returncode == 0
        assert 'illustrator_reference.md' in result.stdout
    ```
 
-### Commit Message Guidelines
+### Commit Messages
 
-Follow conventional commit format:
+Use conventional commits:
 
 ```
 type(scope): subject
@@ -170,11 +164,11 @@ footer
 Types:
 - `feat`: New feature
 - `fix`: Bug fix
-- `docs`: Documentation changes
-- `style`: Code style changes (formatting, etc.)
-- `refactor`: Code refactoring
-- `test`: Test additions or changes
-- `chore`: Build process or auxiliary tool changes
+- `docs`: Documentation
+- `style`: Formatting
+- `refactor`: Refactoring
+- `test`: Tests
+- `chore`: Build/tools
 
 Example:
 ```
@@ -189,42 +183,42 @@ Closes #123
 
 ## Coding Standards
 
-### Rust Style Guide
+### Rust Style
 
-1. **Format code** with rustfmt:
+1. Format with rustfmt:
    ```bash
    cargo fmt
    ```
 
-2. **Check with clippy**:
+2. Lint with clippy:
    ```bash
    cargo clippy --all-targets --all-features
    ```
 
-3. **Naming conventions**:
-   - Use `snake_case` for functions and variables
-   - Use `CamelCase` for types and traits
-   - Use `SCREAMING_SNAKE_CASE` for constants
+3. Naming conventions:
+   - `snake_case` for functions/variables
+   - `CamelCase` for types/traits
+   - `SCREAMING_SNAKE_CASE` for constants
 
-4. **Error handling**:
-   - Use `Result<T, E>` for fallible operations
-   - Provide context with `anyhow::Context`
-   - Avoid `unwrap()` except in tests
+4. Error handling:
+   - Use `Result<T, E>`
+   - Add context with `anyhow::Context`
+   - Avoid `unwrap()` outside tests
 
-5. **Documentation**:
-   - Document all public APIs
+5. Documentation:
+   - Document public APIs
    - Include examples in doc comments
-   - Use `///` for public items, `//` for internal comments
+   - Use `///` for public, `//` for internal
 
-### Code Organization
+### Code Structure
 
 ```
 src/
-├── lib.rs          # Library root with public API
-├── main.rs         # CLI binary entry point
-├── cli.rs          # CLI argument parsing
-├── url.rs          # URL extraction and validation
-├── html.rs         # HTML fetching and processing
+├── lib.rs          # Library root
+├── main.rs         # CLI entry point
+├── cli.rs          # Argument parsing
+├── url.rs          # URL extraction/validation
+├── html.rs         # HTML fetching/processing
 └── markdown.rs     # Markdown conversion
 
 tests/
@@ -238,34 +232,23 @@ tests/
 ### Running Tests
 
 ```bash
-# Run all tests
-cargo test
-
-# Run with all features
-cargo test --all-features
-
-# Run specific test
-cargo test test_name
-
-# Run with output
-cargo test -- --nocapture
-
-# Run benchmarks
-cargo bench
-
-# Run issue verification tests
-python3 issues/issuetest.py
+cargo test                    # All tests
+cargo test --all-features      # With all features
+cargo test test_name          # Specific test
+cargo test -- --nocapture     # With output
+cargo bench                   # Benchmarks
+python3 issues/issuetest.py   # Issue verification
 ```
 
 ### Writing Tests
 
-1. **Unit tests**: Place in `#[cfg(test)]` modules in source files
-2. **Integration tests**: Place in `tests/` directory
-3. **Issue verification tests**: Add to `issues/issuetest.py`
-4. **Test coverage**: Aim for >80% coverage
-5. **Test naming**: Use descriptive names like `test_extract_urls_from_html_with_base_url`
+- Unit tests: In `#[cfg(test)]` modules
+- Integration tests: In `tests/` directory
+- Issue tests: In `issues/issuetest.py`
+- Aim for >80% coverage
+- Use descriptive names: `test_extract_urls_from_html_with_base_url`
 
-Example test:
+Example:
 ```rust
 #[test]
 fn test_url_extraction() {
@@ -278,24 +261,24 @@ fn test_url_extraction() {
 
 ## Documentation
 
-### Code Documentation
+### Code Docs
 
-1. **Module docs**: Add module-level documentation
+1. Module documentation:
    ```rust
-   //! This module handles URL extraction and validation.
+   //! Handles URL extraction and validation.
    //!
-   //! It provides functions to extract URLs from various text formats
-   //! and validate them according to configurable rules.
+   //! Provides functions to extract URLs from text
+   //! and validate them according to rules.
    ```
 
-2. **Function docs**: Document all public functions
+2. Function documentation:
    ```rust
-   /// Extract URLs from text content.
+   /// Extract URLs from text.
    ///
    /// # Arguments
    ///
-   /// * `text` - The text to extract URLs from
-   /// * `base_url` - Optional base URL for resolving relative URLs
+   /// * `text` - Text to extract URLs from
+   /// * `base_url` - Base URL for relative URLs
    ///
    /// # Examples
    ///
@@ -306,12 +289,12 @@ fn test_url_extraction() {
    pub fn extract_urls_from_text(text: &str, base_url: Option<&str>) -> Vec<String> {
    ```
 
-3. **Generate docs**:
+3. Generate docs:
    ```bash
    cargo doc --no-deps --open
    ```
 
-### User Documentation
+### User Docs
 
 - Update README.md for user-facing changes
 - Add examples for new features
@@ -321,13 +304,13 @@ fn test_url_extraction() {
 
 ### Pull Request Process
 
-1. **Update your branch** with latest upstream changes:
+1. Update your branch:
    ```bash
    git fetch upstream
    git rebase upstream/main
    ```
 
-2. **Run quality checks**:
+2. Run quality checks:
    ```bash
    cargo fmt
    cargo clippy --all-targets --all-features
@@ -335,52 +318,52 @@ fn test_url_extraction() {
    cargo doc --no-deps
    ```
 
-3. **Push to your fork**:
+3. Push to your fork:
    ```bash
    git push origin feature/your-feature-name
    ```
 
-4. **Create Pull Request** on GitHub with:
-   - Clear title describing the change
-   - Description of what changed and why
-   - Reference to related issues
-   - Screenshots/examples if applicable
+4. Create PR with:
+   - Clear title
+   - Description of changes
+   - Related issue references
+   - Examples/screenshots if needed
 
 ### Review Process
 
-1. Maintainers will review your PR
-2. Address any feedback
-3. Once approved, maintainers will merge your PR
+1. Maintainers review your PR
+2. Address feedback
+3. Maintainers merge approved PRs
 
 ## Release Process
 
-Releases are managed by maintainers:
+Maintainers handle releases:
 
-1. **Version bump** in Cargo.toml
-2. **Update CHANGELOG.md**
-3. **Create git tag**:
+1. Bump version in Cargo.toml
+2. Update CHANGELOG.md
+3. Create git tag:
    ```bash
    git tag -a v1.2.3 -m "Release v1.2.3"
    git push origin v1.2.3
    ```
-4. **GitHub Actions** automatically:
+4. GitHub Actions automatically:
    - Runs tests
-   - Creates GitHub release
+   - Creates release
    - Builds binaries
    - Publishes to crates.io
 
 ## Getting Help
 
-- **Questions**: Open a GitHub Discussion
-- **Bugs**: Open a GitHub Issue with reproduction steps
-- **Security**: Email security concerns privately
-- **Issue Status**: Check `issues/resolved/` for previously fixed issues
+- Questions: GitHub Discussion
+- Bugs: GitHub Issue with reproduction steps
+- Security: Private email
+- Issue status: Check `issues/resolved/`
 
 ## Recognition
 
-Contributors are recognized in:
-- GitHub contributors page
+Contributors appear in:
+- GitHub contributors list
 - Release notes
 - Project documentation
 
-Thank you for contributing to twars-url2md!
+Thanks for contributing.

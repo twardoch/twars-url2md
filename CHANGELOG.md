@@ -7,8 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **CRITICAL: Eliminated debug output pollution** [#501] - Moved monolith from production dependencies to dev-dependencies, completely removing "Testing monolith 2.10.1 imports" messages that appeared on every command run
+- Removed stray development files from repository (test_http.rs, .pre-commit-config.yaml.bak, llms.txt, md.txt)
+- Deduplicated LLM configuration files (removed AGENTS.md, GEMINI.md, LLXPRT.md, QWEN.md; kept CLAUDE.md as canonical)
+
+### Changed
+- **Corrected documentation to reflect actual implementation**: Updated README, CLI description, and library docs to accurately describe using curl+htmd instead of monolith (which was only in test code)
+- Enhanced .gitignore with builds/, llms.txt, and *.bak patterns
+- Reduced binary size and improved compilation time by removing unused monolith from production build
+
 ### Added
 - **Git-tag-based semversioning**: Version is now automatically determined from git tags during build
+- Comprehensive project planning documentation (PLAN.md, TODO.md, WORK.md) for systematic cleanup and improvement
 - **Comprehensive test suite**: Added extensive unit tests, integration tests, and benchmark tests
 - **Multi-platform CI/CD**: GitHub Actions now builds for Linux (x86_64, aarch64, musl), macOS (x86_64, aarch64), and Windows (x86_64)
 - **Security audit**: Added automated security auditing with cargo-audit

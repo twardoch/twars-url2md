@@ -8,7 +8,7 @@
 
 ## TL;DR
 
-**`twars-url2md`** is a blazingly fast Rust CLI tool that converts web pages into clean, readable Markdown files. It handles batch processing, works with modern CDNs, and produces high-quality output perfect for documentation, archiving, or content conversion workflows.
+**`twars-url2md`** converts web pages to clean Markdown. It processes URLs in batches, handles modern CDN challenges, and outputs structured content suitable for documentation, archiving, or automated workflows.
 
 !!! example "Quick Start"
     ```bash
@@ -25,48 +25,25 @@
     twars-url2md -i urls.txt --pack combined.md
     ```
 
-<div class="feature-grid">
-<div class="feature-card">
-<h3>🚀 High Performance</h3>
-<p>Async processing with CPU-adaptive concurrency for batch operations</p>
-</div>
+## Features
 
-<div class="feature-card">
-<h3>🧹 Clean Output</h3>
-<p>Advanced HTML cleaning removes ads, scripts, and clutter</p>
-</div>
-
-<div class="feature-card">
-<h3>🔄 Robust</h3>
-<p>Automatic retries, panic recovery, and graceful error handling</p>
-</div>
-
-<div class="feature-card">
-<h3>🛡️ CDN Compatible</h3>
-<p>Works with Cloudflare, Fastly, Akamai and other modern CDNs</p>
-</div>
-
-<div class="feature-card">
-<h3>📂 Flexible I/O</h3>
-<p>Multiple input sources, structured or packed output options</p>
-</div>
-
-<div class="feature-card">
-<h3>🖥️ Cross-Platform</h3>
-<p>Native binaries for Linux, macOS, and Windows</p>
-</div>
-</div>
+- **High Performance**: Async processing with adaptive concurrency
+- **Clean Output**: Strips scripts, ads, and clutter from HTML
+- **Robust Operation**: Retries failed requests, recovers from panics
+- **CDN Compatible**: Handles Cloudflare, Fastly, Akamai, etc.
+- **Flexible I/O**: Supports various input sources and output formats
+- **Cross-Platform**: Binaries available for Linux, macOS, Windows
 
 ## What It Does
 
-`twars-url2md` transforms web pages into clean Markdown through a sophisticated pipeline:
+`twars-url2md` transforms web pages into Markdown using this pipeline:
 
-1. **Fetches** web content with robust HTTP client handling
-2. **Cleans** HTML by removing scripts, ads, and non-essential elements  
-3. **Converts** to well-structured Markdown preserving semantic meaning
-4. **Organizes** output with flexible file structure options
+1. **Fetches** content with a resilient HTTP client
+2. **Cleans** HTML by removing non-essential elements
+3. **Converts** cleaned HTML to semantic Markdown
+4. **Organizes** output as individual files or combined documents
 
-## Performance Metrics
+## Performance
 
 <div style="text-align: center; margin: 2rem 0;">
 <span class="performance-metric">⚡ 100+ URLs/min</span>
@@ -75,56 +52,50 @@
 <span class="performance-metric">🚫 Zero runtime dependencies</span>
 </div>
 
-## Documentation Table of Contents
-
-This documentation is organized into the following sections:
+## Documentation Contents
 
 ### Getting Started
-- **[Installation](installation.md)** - Multiple installation methods including pre-compiled binaries, Cargo, and building from source
-- **[Quick Start](quickstart.md)** - Essential examples to get you productive immediately
+- **[Installation](installation.md)** – Binaries, Cargo, or building from source
+- **[Quick Start](quickstart.md)** – Basic usage examples
 
 ### User Guide  
-- **[Basic Usage](usage.md)** - Command-line interface, input formats, and common workflows
-- **[Advanced Features](advanced.md)** - Packed output, URL extraction, local file processing, and complex scenarios
-- **[Configuration](configuration.md)** - Customization options, logging, retries, and environment variables
+- **[Basic Usage](usage.md)** – CLI syntax, input formats, common workflows
+- **[Advanced Features](advanced.md)** – Packing output, URL extraction, local file handling
+- **[Configuration](configuration.md)** – Settings, logging, retries, environment variables
 
 ### Development
-- **[Architecture](architecture.md)** - Technical deep dive into design, components, and performance optimizations
-- **[Contributing](contributing.md)** - Development setup, coding standards, and contribution guidelines  
-- **[Testing](testing.md)** - Test suite overview, running tests, and benchmarking
-- **[API Reference](api.md)** - Library usage, Rust API documentation, and integration examples
+- **[Architecture](architecture.md)** – Design and performance details
+- **[Contributing](contributing.md)** – Development setup and guidelines  
+- **[Testing](testing.md)** – Running tests and benchmarks
+- **[API Reference](api.md)** – Library integration and Rust API docs
 
-## Key Use Cases
+## Use Cases
 
 === "Content Archiving"
-    Perfect for researchers, academics, or knowledge workers who need to preserve web content for offline access or citation.
+    Preserve web pages for offline use or citation.
     
     ```bash
-    # Archive a list of research papers
     twars-url2md -i research_urls.txt -o archive/ -v
     ```
 
 === "Documentation Migration"
-    Convert existing web-based documentation to Markdown for integration with static site generators.
+    Pull online docs into Markdown for static site generators.
     
     ```bash
-    # Convert documentation sites to markdown
     echo "https://old-docs.example.com" | twars-url2md --stdin --pack new-docs.md
     ```
 
 === "Content Curation"
-    Build curated collections by combining multiple web sources into organized Markdown files.
+    Combine sources into organized Markdown collections.
     
     ```bash
-    # Curate articles into a single document
     twars-url2md -i article_list.txt --pack weekly-digest.md
     ```
 
 === "Build Pipeline Integration"
-    Integrate into CI/CD workflows or build systems for automated content processing.
+    Automate content processing in CI/CD systems.
     
     ```bash
-    # Process in CI environment  
     twars-url2md -i $INPUT_FILE -o $OUTPUT_DIR --verbose
     ```
 
@@ -132,17 +103,17 @@ This documentation is organized into the following sections:
 
 | Section | Description | Best For |
 |---------|-------------|----------|
-| [Installation](installation.md) | Get up and running | New users |
-| [Usage](usage.md) | Core functionality | Daily users |
-| [Advanced Features](advanced.md) | Power user features | Complex workflows |
-| [Architecture](architecture.md) | Technical details | Developers |
-| [API Reference](api.md) | Library integration | Rust developers |
+| [Installation](installation.md) | Setup instructions | New users |
+| [Usage](usage.md) | Core commands | Daily users |
+| [Advanced Features](advanced.md) | Extended options | Complex tasks |
+| [Architecture](architecture.md) | Technical design | Developers |
+| [API Reference](api.md) | Library docs | Rust developers |
 
 ---
 
 !!! tip "Need Help?"
-    - Check the [troubleshooting section](usage.md#troubleshooting) for common issues
-    - Visit the [GitHub repository](https://github.com/twardoch/twars-url2md) for bug reports and feature requests
-    - Review the [API documentation](https://docs.rs/twars-url2md) for library usage
+    - [Troubleshooting](usage.md#troubleshooting) – Common problems and fixes
+    - [GitHub repo](https://github.com/twardoch/twars-url2md) – Bugs and feature requests
+    - [API docs](https://docs.rs/twars-url2md) – Library usage details
 
-*Built with ❤️ in Rust by [Adam Twardoch](https://github.com/twardoch)*
+*Built in Rust by [Adam Twardoch](https://github.com/twardoch)*

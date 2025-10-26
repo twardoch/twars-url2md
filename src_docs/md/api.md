@@ -1,6 +1,6 @@
 # API Reference
 
-Complete API documentation for using `twars-url2md` as a Rust library in your applications.
+Complete API documentation for using `twars-url2md` as a Rust library.
 
 ## Getting Started
 
@@ -19,7 +19,7 @@ anyhow = "1"
 
 #### `process_urls`
 
-The primary function for processing multiple URLs:
+Process multiple URLs:
 
 ```rust
 pub async fn process_urls(
@@ -33,7 +33,7 @@ pub async fn process_urls(
 - `config`: Processing configuration
 
 **Returns:**
-- `Ok(Vec<(String, Error)>)`: List of failed URLs with their errors
+- `Ok(Vec<(String, Error)>)`: Failed URLs with their errors
 - `Err(anyhow::Error)`: Critical error that stopped processing
 
 **Example:**
@@ -81,8 +81,6 @@ async fn main() -> anyhow::Result<()> {
 
 #### `Config` Struct
 
-Configuration for URL processing:
-
 ```rust
 pub struct Config {
     pub verbose: bool,
@@ -102,7 +100,7 @@ pub struct Config {
 - `has_output`: Whether to write individual files
 - `pack_file`: Optional path for packed output file
 
-**Default Implementation:**
+**Default values:**
 ```rust
 impl Default for Config {
     fn default() -> Self {
@@ -124,7 +122,7 @@ impl Default for Config {
 
 #### `extract_urls_from_text`
 
-Extract URLs from various text formats:
+Extract URLs from text:
 
 ```rust
 pub fn extract_urls_from_text(text: &str, base_url: Option<&str>) -> Vec<String>
@@ -201,7 +199,7 @@ assert_eq!(
 
 #### `fetch_and_clean_html`
 
-Fetch and clean HTML content from URL:
+Fetch and clean HTML content:
 
 ```rust
 pub async fn fetch_and_clean_html(url: &str) -> Result<String, anyhow::Error>
@@ -287,8 +285,6 @@ println!("{}", markdown);
 
 ### Custom Processing Pipeline
 
-Create a custom processing pipeline:
-
 ```rust
 use twars_url2md::{url, html, markdown};
 use std::path::PathBuf;
@@ -326,8 +322,6 @@ async fn main() -> anyhow::Result<()> {
 ```
 
 ### Concurrent Processing with Custom Control
-
-Implement custom concurrency control:
 
 ```rust
 use twars_url2md::{html, markdown, url};
@@ -385,8 +379,6 @@ async fn process_single_url(url: &str) -> anyhow::Result<String> {
 ```
 
 ### Error Handling Patterns
-
-Comprehensive error handling:
 
 ```rust
 use twars_url2md::{process_urls, Config};
@@ -481,8 +473,6 @@ fn print_processing_report(stats: &ProcessingStats) {
 
 ### Web Server Integration
 
-Using with a web framework:
-
 ```rust
 use axum::{
     extract::Json,
@@ -567,8 +557,6 @@ async fn main() {
 
 ### CLI Tool Integration
 
-Building a CLI tool with the library:
-
 ```rust
 use clap::{Arg, Command};
 use twars_url2md::{process_urls, Config, url::extract_urls_from_text};
@@ -630,17 +618,17 @@ async fn main() -> Result<()> {
 }
 ```
 
----
+## Best Practices
 
-!!! tip "API Best Practices"
-    - Always handle the `Result` types properly
-    - Use structured error handling with `anyhow`
-    - Implement proper async patterns with Tokio
-    - Consider implementing custom `Config` builders for complex scenarios
-    - Use the `verbose` flag during development for debugging
+- Always handle `Result` types properly
+- Use structured error handling with `anyhow`
+- Implement proper async patterns with Tokio
+- Consider custom `Config` builders for complex scenarios
+- Use the `verbose` flag during development
 
-!!! note "Performance Considerations"
-    - The library handles concurrency automatically
-    - For very large URL lists, consider processing in batches
-    - Monitor memory usage with large concurrent operations
-    - Use the retry mechanism appropriately for your use case
+## Performance Considerations
+
+- The library handles concurrency automatically
+- For large URL lists, consider processing in batches
+- Monitor memory usage with large concurrent operations
+- Adjust retry mechanism based on your use case

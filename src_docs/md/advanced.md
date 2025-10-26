@@ -1,12 +1,12 @@
 # Advanced Features
 
-Explore powerful features and sophisticated workflows that make `twars-url2md` suitable for complex content processing scenarios.
+`twars-url2md` handles complex content processing with precision and flexibility.
 
 ## URL Extraction and Processing
 
 ### Smart URL Detection
 
-`twars-url2md` uses intelligent URL extraction to find links in various content formats:
+Extract links from various formats:
 
 ```bash
 # Extract from HTML page with mixed content
@@ -23,7 +23,7 @@ curl -s https://news.ycombinator.com | \
 
 ### Base URL Resolution
 
-Resolve relative URLs found in content:
+Resolve relative URLs:
 
 ```bash
 # HTML content with relative links
@@ -43,7 +43,7 @@ twars-url2md -i content.html --base-url https://mysite.com/current/page -o resol
 
 ### URL Filtering and Validation
 
-Built-in URL validation and filtering:
+Filter by protocol and validity:
 
 ```bash
 # Only HTTP/HTTPS URLs are processed
@@ -68,7 +68,7 @@ twars-url2md -i mixed_urls.txt -o filtered/ -v
 
 ### Packed Output with Custom Headers
 
-The `--pack` option creates structured single-file output:
+Create structured single-file output:
 
 ```bash
 twars-url2md -i research_papers.txt --pack "research-$(date +%Y-%m-%d).md" -v
@@ -82,7 +82,7 @@ twars-url2md -i research_papers.txt --pack "research-$(date +%Y-%m-%d).md" -v
 
 ### Hybrid Output Mode
 
-Combine individual files with packed output:
+Generate both individual files and packed output:
 
 ```bash
 # Creates both directory structure AND packed file
@@ -96,7 +96,7 @@ twars-url2md -i urls.txt -o individual_files/ --pack archive.md -v
 
 ### Output Path Generation
 
-Understanding output path creation:
+Understand how paths are created:
 
 ```bash
 # URL: https://doc.rust-lang.org/book/ch01-01-installation.html
@@ -149,7 +149,7 @@ done
 
 ### Multi-stage Processing
 
-Complex workflows combining extraction and conversion:
+Combine extraction and conversion in complex workflows:
 
 ```bash
 #!/bin/bash
@@ -349,7 +349,7 @@ if __name__ == '__main__':
 
 ### Parallel Processing Strategies
 
-For very large URL sets:
+Handle large URL sets efficiently:
 
 ```bash
 # Split large URL list into chunks
@@ -514,8 +514,8 @@ twars-url2md -i urls.txt -o output/ -v 2>&1 | \
 ---
 
 !!! tip "Advanced Workflows"
-    - Combine multiple processing strategies for complex content pipelines
-    - Use shell scripting to create custom workflows tailored to your needs
-    - Monitor system resources during large batch operations
-    - Implement proper error handling and recovery mechanisms for production use
-    - Consider using container orchestration for very large-scale processing
+    - Combine multiple processing strategies for complex pipelines
+    - Use shell scripting for custom workflows
+    - Monitor system resources during large operations
+    - Implement error handling for production use
+    - Consider container orchestration for large-scale processing

@@ -1,6 +1,6 @@
 # Contributing
 
-We welcome contributions to `twars-url2md`! This guide will help you get started with development, understand our workflow, and make meaningful contributions.
+We welcome contributions to `twars-url2md`. This guide explains how to set up your environment, understand the codebase, and submit changes.
 
 ## Getting Started
 
@@ -45,8 +45,6 @@ We welcome contributions to `twars-url2md`! This guide will help you get started
 
 ### Project Structure
 
-Understanding the codebase organization:
-
 ```
 src/
 ├── main.rs          # Entry point with panic handling
@@ -66,7 +64,7 @@ tests/
 └── workflows/       # CI/CD configuration
 
 scripts/             # Build and release scripts
-docs/               # Generated documentation
+docs/                # Generated documentation
 ```
 
 ## Development Workflow
@@ -81,7 +79,7 @@ docs/               # Generated documentation
    ```
 
 2. **Make Your Changes**
-   - Follow the coding standards (see below)
+   - Follow coding standards below
    - Add tests for new functionality
    - Update documentation as needed
 
@@ -111,18 +109,18 @@ docs/               # Generated documentation
    ```
 
 5. **Create Pull Request**
-   - Use the GitHub web interface
-   - Fill out the PR template
-   - Link any related issues
+   - Use GitHub web interface
+   - Fill out PR template
+   - Link related issues
 
 ### Commit Message Convention
 
-We use conventional commits for clear history:
+Use conventional commits:
 
 - `feat:` - New features
 - `fix:` - Bug fixes  
 - `docs:` - Documentation changes
-- `style:` - Code style changes (formatting, etc.)
+- `style:` - Code style changes
 - `refactor:` - Code refactoring
 - `test:` - Adding or updating tests
 - `chore:` - Maintenance tasks
@@ -139,11 +137,10 @@ test: add integration tests for packed output
 
 ### Rust Code Style
 
-Follow standard Rust conventions with these specifics:
+Follow standard Rust conventions:
 
 1. **Formatting**
    ```bash
-   # Use rustfmt with default settings
    cargo fmt
    ```
 
@@ -163,7 +160,6 @@ Follow standard Rust conventions with these specifics:
 
 3. **Error Handling**
    ```rust
-   // Use anyhow::Result for application errors
    use anyhow::{Result, Context};
    
    fn process_url(url: &str) -> Result<String> {
@@ -199,13 +195,12 @@ Follow standard Rust conventions with these specifics:
 ### Code Organization
 
 1. **Module Structure**
-   - Keep modules focused and cohesive
+   - Keep modules focused
    - Use `pub(crate)` for internal APIs
-   - Document public APIs thoroughly
+   - Document public APIs
 
 2. **Error Types**
    ```rust
-   // Use thiserror for custom error types
    use thiserror::Error;
    
    #[derive(Error, Debug)]
@@ -220,7 +215,6 @@ Follow standard Rust conventions with these specifics:
 
 3. **Async Code**
    ```rust
-   // Use proper async/await patterns
    pub async fn fetch_multiple_urls(urls: Vec<String>) -> Result<Vec<String>> {
        let futures = urls.into_iter()
            .map(|url| fetch_single_url(url));
@@ -296,11 +290,11 @@ Follow standard Rust conventions with these specifics:
 
 ### Testing Best Practices
 
-- **Test both success and failure cases**
-- **Use realistic test data** (fixtures)
-- **Mock external dependencies** when appropriate
-- **Write readable test names** that describe the scenario
-- **Keep tests fast and independent**
+- Test success and failure cases
+- Use realistic test data
+- Mock external dependencies when appropriate
+- Write descriptive test names
+- Keep tests fast and independent
 
 ## Contributing Areas
 
@@ -447,7 +441,6 @@ We use semantic versioning (SemVer):
 ### Code of Conduct
 
 We follow the [Rust Code of Conduct](https://www.rust-lang.org/policies/code-of-conduct):
-
 - Be friendly and welcoming
 - Be patient and constructive
 - Be respectful of different viewpoints
@@ -468,8 +461,6 @@ We follow the [Rust Code of Conduct](https://www.rust-lang.org/policies/code-of-
 
 ---
 
-!!! tip "First-Time Contributors"
-    Look for issues labeled `good first issue` or `help wanted` to find beginner-friendly tasks. Don't hesitate to ask questions - we're here to help you succeed!
+**First-Time Contributors**: Look for issues labeled `good first issue` or `help wanted`. Don't hesitate to ask questions.
 
-!!! note "Recognition"
-    All contributors are recognized in our README and release notes. We appreciate every contribution, no matter how small!
+**Recognition**: All contributors are recognized in our README and release notes. Every contribution counts.

@@ -4,7 +4,7 @@ Deep dive into the technical architecture, design decisions, and implementation 
 
 ## System Overview
 
-`twars-url2md` is built with a modular, async-first architecture in Rust, emphasizing performance, reliability, and maintainability.
+`twars-url2md` is a Rust application with a modular, async-first architecture. It prioritizes performance, reliability, and maintainability.
 
 <div class="arch-diagram">
 ```mermaid
@@ -37,13 +37,13 @@ graph TB
 
 ### 1. CLI Interface (`src/cli.rs`)
 
-Command-line argument parsing and user interaction layer.
+Handles command-line argument parsing and user interaction.
 
 **Key Responsibilities:**
-- Argument parsing with `clap` derive macros
-- Input validation and error handling
-- Configuration setup and environment detection
-- User-friendly error messages
+- Parse arguments with `clap` derive macros
+- Validate input and handle errors
+- Set up configuration and detect environment
+- Provide clear error messages
 
 **Design Patterns:**
 ```rust
@@ -65,13 +65,13 @@ pub struct Args {
 
 ### 2. URL Processing (`src/url.rs`)
 
-URL extraction, validation, and normalization engine.
+Engine for extracting, validating, and normalizing URLs.
 
 **Architecture Features:**
-- **Multi-format URL extraction** using `linkify` crate
-- **Base URL resolution** for relative links
-- **URL validation and deduplication**
-- **Output path generation** from URL structure
+- Extract URLs from text using `linkify`
+- Resolve relative URLs against base URL
+- Validate and remove duplicate URLs
+- Generate output paths from URL structure
 
 **Processing Pipeline:**
 ```rust
@@ -95,13 +95,13 @@ pub fn extract_urls_from_text(text: &str, base_url: Option<&str>) -> Vec<String>
 
 ### 3. HTTP Client (`src/html.rs`)
 
-Robust HTTP client built on `curl` for maximum compatibility.
+HTTP client built on `curl` for compatibility.
 
 **CDN Compatibility Features:**
-- **Browser-like User-Agent** to avoid bot detection
-- **HTTP/2 auto-negotiation** preferred by modern CDNs
-- **Comprehensive header set** mimicking real browsers
-- **Connection pooling** for efficient resource usage
+- Browser-like User-Agent to avoid bot detection
+- HTTP/2 auto-negotiation
+- Headers that mimic real browsers
+- Connection pooling for efficiency
 
 **Request Configuration:**
 ```rust
@@ -134,12 +134,12 @@ fn configure_request(easy: &mut Easy) -> Result<()> {
 
 ### 4. HTML Processing Pipeline
 
-Two-stage HTML cleaning and conversion process.
+Two-stage process for cleaning and converting HTML.
 
 #### Stage 1: Monolith Integration
-- **Content Extraction**: Removes scripts, styles, ads
-- **Resource Handling**: Processes images and links
-- **Panic Recovery**: Catches Monolith panics to prevent crashes
+- Remove scripts, styles, ads
+- Process images and links
+- Catch Monolith panics to prevent crashes
 
 ```rust
 pub async fn fetch_and_clean_html(url: &str) -> Result<String> {
@@ -156,13 +156,13 @@ pub async fn fetch_and_clean_html(url: &str) -> Result<String> {
 ```
 
 #### Stage 2: Markdown Conversion
-- **Semantic Preservation**: Maintains heading hierarchy
-- **Link Processing**: Preserves and normalizes links
-- **Structure Retention**: Tables, lists, code blocks
+- Preserve heading hierarchy
+- Normalize links
+- Retain tables, lists, code blocks
 
 ### 5. Async Processing Engine (`src/lib.rs`)
 
-High-performance concurrent processing using Tokio.
+Concurrent processing with Tokio.
 
 **Concurrency Architecture:**
 ```rust
@@ -185,16 +185,16 @@ fn determine_optimal_concurrency() -> usize {
 ```
 
 **Error Aggregation:**
-- Individual URL failures don't stop batch processing
-- Comprehensive error reporting at completion
-- Retry logic with exponential backoff
+- Failed URLs don't stop batch processing
+- Report all errors at completion
+- Retry with exponential backoff
 
 ### 6. Output Management
 
-Flexible output system supporting multiple formats and structures.
+Supports multiple output formats.
 
 **Output Modes:**
-- **Directory Structure**: Mirrors URL hierarchy
+- **Directory Structure**: Mirror URL hierarchy
 - **Single File**: Concatenated content
 - **Packed Format**: URL-separated sections
 
@@ -226,28 +226,28 @@ impl OutputMode {
 
 ### 1. Adaptive Concurrency
 
-Dynamic concurrency adjustment based on system resources:
-- **CPU Detection**: Uses `num_cpus` crate for core count
-- **I/O Optimization**: Higher concurrency for I/O-bound operations
-- **Resource Limits**: Caps maximum concurrent operations
+Adjust concurrency based on system resources:
+- Use `num_cpus` for core count
+- Higher concurrency for I/O-bound operations
+- Cap maximum operations at 16
 
 ### 2. Connection Reuse
 
-HTTP client optimizations:
-- **Connection Pooling**: Reuses connections for same domains
-- **Keep-Alive**: Maintains connections between requests
-- **HTTP/2 Multiplexing**: Multiple requests per connection
+Reuse HTTP connections:
+- Pool connections for same domains
+- Keep connections alive between requests
+- Multiplex requests with HTTP/2
 
 ### 3. Memory Management
 
-Efficient memory usage patterns:
-- **Streaming Processing**: Avoids loading all content in memory
-- **Lazy Evaluation**: Processes URLs on-demand
-- **Resource Cleanup**: Proper cleanup of temporary resources
+Efficient memory usage:
+- Stream processing instead of loading everything
+- Process URLs on demand
+- Clean up temporary resources
 
 ### 4. Build Optimizations
 
-Compile-time optimizations for release builds:
+Release build optimizations:
 ```toml
 [profile.release]
 lto = true                # Link-time optimization
@@ -261,10 +261,10 @@ opt-level = 3             # Maximum optimization
 
 ### Multi-Layer Error Handling
 
-1. **Network Layer**: Connection timeouts, DNS failures
+1. **Network Layer**: Timeouts, DNS failures
 2. **Protocol Layer**: HTTP errors, redirects
-3. **Content Layer**: HTML parsing, encoding issues
-4. **File System Layer**: Permission errors, disk space
+3. **Content Layer**: Parsing, encoding issues
+4. **File System Layer**: Permissions, disk space
 
 ### Error Recovery Mechanisms
 
@@ -295,7 +295,7 @@ impl ProcessingError {
 
 ### Panic Recovery
 
-Specific panic recovery for the Monolith library:
+Recover from Monolith panics:
 ```rust
 pub fn safe_clean_html(html: &str, url: &str) -> Result<String> {
     std::panic::catch_unwind(|| {
@@ -310,7 +310,7 @@ pub fn safe_clean_html(html: &str, url: &str) -> Result<String> {
 
 ### Structured Logging
 
-Using `tracing` crate for structured, contextual logging:
+Use `tracing` for structured logs:
 ```rust
 #[tracing::instrument(skip(content), fields(url = %url, content_size = content.len()))]
 pub async fn process_content(url: &str, content: &str) -> Result<String> {
@@ -337,25 +337,25 @@ pub async fn process_content(url: &str, content: &str) -> Result<String> {
 
 ### Performance Metrics
 
-Built-in performance tracking:
+Track performance:
 - Request timing and throughput
-- Memory usage monitoring  
-- Error rate tracking
-- Retry attempt statistics
+- Memory usage
+- Error rates
+- Retry statistics
 
 ## Security Considerations
 
 ### Input Validation
 
-- **URL Validation**: Strict URL format checking
-- **Path Traversal Prevention**: Safe output path generation
-- **Content Size Limits**: Protection against memory exhaustion
+- Strict URL format checking
+- Prevent path traversal attacks
+- Limit content size to prevent memory exhaustion
 
 ### Network Security
 
-- **TLS Verification**: Certificate validation enabled by default
-- **Redirect Limits**: Maximum redirect count to prevent loops
-- **Timeout Enforcement**: Request timeouts to prevent hanging
+- Enable TLS certificate validation
+- Limit redirect count to prevent loops
+- Enforce request timeouts
 
 ### File System Safety
 
@@ -391,7 +391,7 @@ pub fn safe_output_path(base: &Path, url: &str) -> Result<PathBuf> {
 
 ### Build Metadata Integration
 
-Runtime build information embedded during compilation:
+Embed build information:
 ```rust
 // build.rs
 use built::write_built_file;
@@ -413,17 +413,17 @@ pub fn version() -> String {
 
 ### Cross-Platform Builds
 
-Multi-target build configuration:
-- **Linux**: x86_64, aarch64, musl variants
+Build for multiple targets:
+- **Linux**: x86_64, aarch64, musl
 - **macOS**: Intel and Apple Silicon
 - **Windows**: x86_64 MSVC
 
 ### Dependency Management
 
-Strategic dependency choices:
-- **Core Dependencies**: Minimal, well-maintained crates
-- **Feature Flags**: Optional functionality to reduce binary size
-- **Version Pinning**: Careful balance between updates and stability
+Choose dependencies carefully:
+- Use minimal, well-maintained crates
+- Optional features to reduce binary size
+- Balance updates with stability
 
 ## Testing Architecture
 
@@ -439,18 +439,18 @@ tests/
 
 ### Test Categories
 
-1. **Unit Tests**: Individual component functionality
-2. **Integration Tests**: End-to-end workflow testing
+1. **Unit Tests**: Test individual components
+2. **Integration Tests**: Test end-to-end workflows
 3. **Performance Tests**: Benchmark critical paths
-4. **Compatibility Tests**: Different input formats and edge cases
+4. **Compatibility Tests**: Test different formats and edge cases
 
 ---
 
-!!! note "Design Philosophy"
-    The architecture prioritizes:
-    
-    - **Reliability**: Graceful error handling and recovery
-    - **Performance**: Async processing and efficient resource usage  
-    - **Maintainability**: Modular design with clear separation of concerns
-    - **Extensibility**: Easy to add new input/output formats
-    - **User Experience**: Informative feedback and intuitive behavior
+**Design Philosophy**
+The architecture prioritizes:
+
+- **Reliability**: Handle errors gracefully
+- **Performance**: Process asynchronously and efficiently
+- **Maintainability**: Modular design with clear separation
+- **Extensibility**: Easy to add new formats
+- **User Experience**: Clear feedback and intuitive behavior

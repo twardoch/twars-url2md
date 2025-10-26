@@ -1,6 +1,6 @@
 # Basic Usage
 
-This comprehensive guide covers all command-line options, input formats, output modes, and common usage patterns for `twars-url2md`.
+This guide explains how to use `twars-url2md` effectively. It covers command-line options, input methods, output modes, and troubleshooting tips.
 
 ## Command Syntax
 
@@ -82,35 +82,35 @@ curl -s https://awesome-rust.com | twars-url2md --stdin --base-url https://aweso
 
 `twars-url2md` can extract URLs from various text formats:
 
-=== "HTML Content"
-    ```html
-    <!-- Input HTML content -->
-    <p>Check out <a href="https://www.rust-lang.org">Rust</a> and 
-    <a href="/crates">crates.io</a> for packages.</p>
-    ```
-    
-    ```bash
-    # Extract and process URLs
-    cat content.html | twars-url2md --stdin --base-url https://example.com -o extracted/
-    ```
+**HTML Content**
+```html
+<!-- Input HTML content -->
+<p>Check out <a href="https://www.rust-lang.org">Rust</a> and 
+<a href="/crates">crates.io</a> for packages.</p>
+```
 
-=== "Markdown Content"
-    ```markdown
-    # Links in Markdown
-    Check out [Rust](https://www.rust-lang.org) and [Crates](https://crates.io).
-    Also see [relative link](./docs/guide.html).
-    ```
-    
-    ```bash
-    twars-url2md -i content.md --base-url https://site.com -o docs/
-    ```
+```bash
+# Extract and process URLs
+cat content.html | twars-url2md --stdin --base-url https://example.com -o extracted/
+```
 
-=== "Plain Text"
-    ```txt
-    Visit https://www.rust-lang.org for documentation.
-    The package registry is at https://crates.io.
-    Relative URLs like /docs/guide need a base URL.
-    ```
+**Markdown Content**
+```markdown
+# Links in Markdown
+Check out [Rust](https://www.rust-lang.org) and [Crates](https://crates.io).
+Also see [relative link](./docs/guide.html).
+```
+
+```bash
+twars-url2md -i content.md --base-url https://site.com -o docs/
+```
+
+**Plain Text**
+```txt
+Visit https://www.rust-lang.org for documentation.
+The package registry is at https://crates.io.
+Relative URLs like /docs/guide need a base URL.
+```
 
 ### Local File Processing
 
@@ -237,36 +237,36 @@ RUST_LOG=info twars-url2md -i urls.txt -o output/
 
 ### Common Error Scenarios
 
-=== "Network Issues"
-    ```bash
-    # Verbose mode shows retry attempts
-    twars-url2md https://unreliable-site.com -v
-    ```
-    
-    **Output**:
-    ```
-    WARN Failed to fetch https://unreliable-site.com: Connection timeout
-    INFO Retrying in 1s... (attempt 2/3)
-    INFO Successfully fetched after retry
-    ```
+**Network Issues**
+```bash
+# Verbose mode shows retry attempts
+twars-url2md https://unreliable-site.com -v
+```
 
-=== "SSL/TLS Problems"
-    ```bash
-    twars-url2md https://site-with-ssl-issues.com -v
-    ```
-    
-    **Troubleshooting**:
-    - Update system CA certificates
-    - Check if site uses self-signed certificates
-    - Verify system date/time is correct
+**Output**:
+```
+WARN Failed to fetch https://unreliable-site.com: Connection timeout
+INFO Retrying in 1s... (attempt 2/3)
+INFO Successfully fetched after retry
+```
 
-=== "HTML Parsing Issues"
-    ```bash
-    # Monolith panic recovery
-    twars-url2md https://site-with-malformed-html.com -v
-    ```
-    
-    If HTML cleaning fails, the tool attempts fallback processing.
+**SSL/TLS Problems**
+```bash
+twars-url2md https://site-with-ssl-issues.com -v
+```
+
+**Troubleshooting**:
+- Update system CA certificates
+- Check if site uses self-signed certificates
+- Verify system date/time is correct
+
+**HTML Parsing Issues**
+```bash
+# Monolith panic recovery
+twars-url2md https://site-with-malformed-html.com -v
+```
+
+If HTML cleaning fails, the tool attempts fallback processing.
 
 ## Advanced Usage Patterns
 
@@ -375,31 +375,31 @@ docs: urls.txt
 
 ### Common Issues
 
-=== "Permission Denied"
-    ```bash
-    # Create output directory first
-    mkdir -p output
-    twars-url2md https://example.com -o output/
-    
-    # Or use user directory
-    twars-url2md https://example.com -o ~/Documents/markdown/
-    ```
+**Permission Denied**
+```bash
+# Create output directory first
+mkdir -p output
+twars-url2md https://example.com -o output/
 
-=== "Empty Output Files"
-    ```bash
-    # Enable verbose mode to diagnose
-    twars-url2md https://problematic-url.com -v
-    
-    # Check if content is JavaScript-rendered
-    # (not supported - requires pre-rendered HTML)
-    ```
+# Or use user directory
+twars-url2md https://example.com -o ~/Documents/markdown/
+```
 
-=== "Encoding Issues"
-    ```bash
-    # Modern sites should work automatically
-    # Check verbose output for encoding detection
-    twars-url2md https://non-english-site.com -v
-    ```
+**Empty Output Files**
+```bash
+# Enable verbose mode to diagnose
+twars-url2md https://problematic-url.com -v
+
+# Check if content is JavaScript-rendered
+# (not supported - requires pre-rendered HTML)
+```
+
+**Encoding Issues**
+```bash
+# Modern sites should work automatically
+# Check verbose output for encoding detection
+twars-url2md https://non-english-site.com -v
+```
 
 ### Debug Mode
 
@@ -413,11 +413,10 @@ RUST_LOG=trace twars-url2md https://example.com -v
 RUST_LOG=twars_url2md::html=debug twars-url2md https://example.com -v
 ```
 
----
+## Best Practices
 
-!!! tip "Best Practices"
-    - Always use `-v` for large batch jobs to monitor progress
-    - Test with a small set of URLs before processing large lists
-    - Use `--pack` for creating single-file archives
-    - Monitor system resources during large conversion jobs
-    - Keep URL lists organized and documented for reproducibility
+- Always use `-v` for large batch jobs to monitor progress
+- Test with a small set of URLs before processing large lists
+- Use `--pack` for creating single-file archives
+- Monitor system resources during large conversion jobs
+- Keep URL lists organized and documented for reproducibility

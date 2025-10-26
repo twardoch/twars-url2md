@@ -1,28 +1,28 @@
 # Quick Start
 
-Get up and running with `twars-url2md` in minutes. This guide covers the most common use cases with practical examples.
+Get `twars-url2md` running fast. This guide shows common tasks with real examples.
 
 ## Basic Conversion
 
 ### Single URL
 
-Convert one URL to Markdown:
+Turn one URL into Markdown:
 
 ```bash
-# Convert to stdout (preview)
+# Print to stdout
 twars-url2md https://www.rust-lang.org
 
-# Save to a directory structure
+# Save to a directory
 twars-url2md https://www.rust-lang.org -o output/
 
-# Save to a specific file
+# Save to a file
 twars-url2md https://www.rust-lang.org -o rust-lang.md
 ```
 
 ### Multiple URLs
 
 ```bash
-# Multiple URLs as arguments
+# List URLs as arguments
 twars-url2md https://www.rust-lang.org https://crates.io -o output/
 
 # From a file (one URL per line)
@@ -34,41 +34,41 @@ twars-url2md -i urls.txt -o output/
 
 ### From Files
 
-Create a file with URLs:
+Make a list of URLs:
 
 ```bash
-# Create URL list
+# Create the list
 cat > my_urls.txt << EOF
 https://doc.rust-lang.org/book/
 https://doc.rust-lang.org/std/
 https://doc.rust-lang.org/cargo/
 EOF
 
-# Process the file
+# Run conversion
 twars-url2md -i my_urls.txt -o rust_docs/
 ```
 
 ### From Standard Input
 
 ```bash
-# Pipe URLs from another command
+# Pipe from another command
 curl -s https://example.com/links.html | \
   twars-url2md --stdin --base-url https://example.com -o extracted/
 
-# Manual input (Ctrl+D to finish)
+# Manual input (press Ctrl+D when done)
 twars-url2md --stdin -o manual_input/
 ```
 
 ### From HTML/Markdown Content
 
-`twars-url2md` can extract URLs from HTML or Markdown content:
+Pull URLs from content:
 
 ```bash
-# Extract links from a webpage
+# Get links from a webpage
 curl -s https://awesome-rust.com | \
   twars-url2md --stdin --base-url https://awesome-rust.com -o awesome_rust/
 
-# Process a markdown file with links
+# Pull links from a markdown file
 twars-url2md -i README.md --base-url https://github.com/user/repo -o docs/
 ```
 
@@ -76,34 +76,34 @@ twars-url2md -i README.md --base-url https://github.com/user/repo -o docs/
 
 ### Directory Structure (Default)
 
-Creates organized directory structure:
+Organizes output by domain and path:
 
 ```bash
 twars-url2md https://doc.rust-lang.org/book/ch01-01-installation.html -o output/
 ```
 
-Creates: `output/doc.rust-lang.org/book/ch01-01-installation.md`
+Result: `output/doc.rust-lang.org/book/ch01-01-installation.md`
 
 ### Single File Output
 
 ```bash
-# Specify .md extension
+# Force single file with .md extension
 twars-url2md https://doc.rust-lang.org/book/ -o rust-book.md
 ```
 
 ### Packed Output
 
-Combine multiple URLs into one file with headers:
+Merge multiple URLs into one file:
 
 ```bash
-# Pack multiple URLs
+# Pack all into one file
 twars-url2md -i urls.txt --pack combined-docs.md
 
-# Pack with individual files too
+# Save individual files AND pack
 twars-url2md -i urls.txt -o individual/ --pack combined.md
 ```
 
-Example packed output:
+Packed format:
 ```markdown
 # https://www.rust-lang.org
 
@@ -119,7 +119,7 @@ Content from crates.io...
 ### Documentation Archiving
 
 ```bash
-# Archive a project's documentation
+# Archive project docs
 cat > project_docs.txt << EOF
 https://project.example.com/docs/
 https://project.example.com/api/
@@ -132,7 +132,7 @@ twars-url2md -i project_docs.txt -o project_archive/ --pack project_complete.md 
 ### Research Collection
 
 ```bash
-# Collect research papers
+# Collect papers
 twars-url2md \
   https://arxiv.org/abs/2301.12345 \
   https://papers.nips.cc/paper/2023/hash/abcd1234 \
@@ -143,7 +143,7 @@ twars-url2md \
 ### Blog Post Conversion
 
 ```bash
-# Convert blog posts to markdown
+# Convert blog posts
 find blog_urls.txt -type f | \
   twars-url2md --stdin -o blog_archive/ \
   --verbose
@@ -151,16 +151,16 @@ find blog_urls.txt -type f | \
 
 ## Local File Processing
 
-Process local HTML files:
+Handle local HTML files:
 
 ```bash
-# Single local file
+# One file
 twars-url2md /path/to/document.html -o converted/
 
-# Multiple local files
+# Many files
 find . -name "*.html" | twars-url2md --stdin -o html_converted/
 
-# With file:// URLs
+# With file:// protocol
 twars-url2md file:///absolute/path/to/document.html -o output/
 ```
 
@@ -168,7 +168,7 @@ twars-url2md file:///absolute/path/to/document.html -o output/
 
 ### Verbose Mode
 
-See detailed processing information:
+Show what's happening:
 
 ```bash
 twars-url2md -i urls.txt -o output/ -v
@@ -176,7 +176,7 @@ twars-url2md -i urls.txt -o output/ -v
 
 ### Custom Base URL
 
-Resolve relative links in extracted content:
+Fix relative links in content:
 
 ```bash
 curl -s https://news.ycombinator.com | \
@@ -187,7 +187,7 @@ curl -s https://news.ycombinator.com | \
 
 === "Website Backup"
     ```bash
-    # Backup important pages
+    # Backup pages
     cat > backup_urls.txt << EOF
     https://company.com/important-doc
     https://company.com/api-reference  
@@ -199,7 +199,7 @@ curl -s https://news.ycombinator.com | \
 
 === "Research Collection"
     ```bash
-    # Academic papers and articles
+    # Save papers
     twars-url2md \
       "https://arxiv.org/abs/2301.07041" \
       "https://openreview.net/forum?id=abc123" \
@@ -208,14 +208,14 @@ curl -s https://news.ycombinator.com | \
 
 === "Tutorial Archive"
     ```bash
-    # Save programming tutorials
+    # Save tutorials
     echo "https://doc.rust-lang.org/book/" | \
       twars-url2md --stdin -o tutorials/ -v
     ```
 
 === "News Articles"
     ```bash
-    # Daily news collection
+    # Save daily articles
     cat today_articles.txt | \
       twars-url2md --stdin --pack "news-$(date +%Y-%m-%d).md"
     ```
@@ -224,13 +224,13 @@ curl -s https://news.ycombinator.com | \
 
 ### Batch Processing
 
-For large numbers of URLs:
+Speed up large jobs:
 
 ```bash
-# Enable verbose logging to monitor progress
+# Watch progress
 twars-url2md -i large_url_list.txt -o output/ -v
 
-# Split large files for parallel processing
+# Split and run in parallel
 split -l 100 huge_urls.txt chunk_
 for chunk in chunk_*; do
   twars-url2md -i "$chunk" -o "output_${chunk}/" &
@@ -240,24 +240,26 @@ wait
 
 ### Resource Management
 
+Keep an eye on system load:
+
 ```bash
-# Monitor system resources during large jobs
-htop &  # or your preferred system monitor
+# Monitor while running
+htop &  
 twars-url2md -i many_urls.txt -o output/ -v
 ```
 
-## Troubleshooting Quick Fixes
+## Troubleshooting
 
-### Common Issues
+### Common Fixes
 
 ```bash
-# SSL certificate issues
-twars-url2md https://site-with-ssl-issues.com -v  # Check verbose output
+# SSL problems
+twars-url2md https://site-with-ssl-issues.com -v
 
-# Timeout issues
-twars-url2md https://slow-site.com -v  # Monitor with verbose logging
+# Slow sites
+twars-url2md https://slow-site.com -v
 
-# Permission issues
+# Permission errors
 mkdir -p ~/my_output
 twars-url2md https://example.com -o ~/my_output/
 ```
@@ -265,30 +267,28 @@ twars-url2md https://example.com -o ~/my_output/
 ### Verification
 
 ```bash
-# Test installation
+# Check version
 twars-url2md --version
 
-# Test with a reliable URL
+# Test with known good URL
 twars-url2md https://httpbin.org/html -o test/
 
-# Verify output
+# Confirm result
 ls -la test/
 cat test/httpbin.org/html.md
 ```
 
 ## Next Steps
 
-Now that you're familiar with basic usage:
-
-- Learn about [Advanced Features](advanced.md) for complex workflows  
-- Review [Configuration](configuration.md) for customization options
-- Check [Usage](usage.md) for comprehensive command reference
-- Explore [API Reference](api.md) for library integration
+- [Advanced Features](advanced.md)  
+- [Configuration](configuration.md)  
+- [Usage](usage.md)  
+- [API Reference](api.md)  
 
 ---
 
-!!! tip "Pro Tips"
-    - Use `-v` (verbose) to monitor progress on large jobs
-    - The `--pack` option is great for creating single-file archives
-    - Directory structure output mirrors the original URL hierarchy
-    - Local HTML files can be processed just like remote URLs
+!!! tip ""
+    - Use `-v` for progress on big jobs
+    - `--pack` merges content into one file
+    - Default output mirrors URL structure
+    - Local files work like remote ones

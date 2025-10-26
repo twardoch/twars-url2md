@@ -23,3 +23,10 @@ target/
 Temporary Items
 work/
 /.specstory
+
+# Build outputs
+builds/
+llms.txt
+
+# Backup files
+*.bak

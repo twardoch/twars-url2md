@@ -1,12 +1,12 @@
 # Configuration
 
-Customize `twars-url2md` behavior through command-line options, environment variables, and advanced configuration techniques.
+Customize `twars-url2md` behavior through command-line options, environment variables, and configuration files.
 
 ## Runtime Configuration
 
-### Logging Configuration
+### Logging
 
-Control logging output with environment variables and command-line flags:
+Control logging with environment variables and command-line flags:
 
 #### Basic Logging
 
@@ -21,36 +21,36 @@ RUST_LOG=info,twars_url2md=debug twars-url2md -i urls.txt -o output/
 #### Advanced Logging Control
 
 ```bash
-# Maximum verbosity for debugging
+# Maximum verbosity
 RUST_LOG=trace twars-url2md -i urls.txt -o output/
 
 # Module-specific logging
 RUST_LOG=twars_url2md::html=debug,twars_url2md::markdown=info twars-url2md -i urls.txt -o output/
 
-# Focus on specific components
+# Component-specific logging
 RUST_LOG=twars_url2md=debug,reqwest=info,curl=warn twars-url2md -i urls.txt -o output/
 ```
 
-#### Log Format Customization
+#### Log Format
 
 ```bash
-# Structured JSON logging (for log analysis tools)
+# JSON logging for analysis tools
 RUST_LOG=info RUST_LOG_FORMAT=json twars-url2md -i urls.txt -o output/ -v
 
-# Minimal logging output
+# Minimal output
 RUST_LOG=error twars-url2md -i urls.txt -o output/
 
 # Log to file
 twars-url2md -i urls.txt -o output/ -v 2> conversion.log
 ```
 
-### Retry Configuration
+### Retry Logic
 
-While retry counts aren't directly configurable via CLI, you can implement custom retry logic:
+Retry counts aren't configurable via CLI. Use a wrapper script:
 
 ```bash
 #!/bin/bash
-# Custom retry wrapper
+# retry.sh
 
 retry_command() {
     local max_attempts=5
@@ -64,7 +64,7 @@ retry_command() {
         
         echo "Attempt $attempt failed, retrying in ${delay}s..."
         sleep $delay
-        delay=$((delay * 2))  # Exponential backoff
+        delay=$((delay * 2))
         ((attempt++))
     done
     
@@ -72,27 +72,24 @@ retry_command() {
     return 1
 }
 
-# Usage
 retry_command -i urls.txt -o output/ -v
 ```
 
 ## Environment Variables
 
-### System Environment
-
-Key environment variables that affect behavior:
+### System Variables
 
 | Variable | Purpose | Example |
 |----------|---------|---------|
-| `RUST_LOG` | Logging configuration | `RUST_LOG=debug` |
-| `RUST_BACKTRACE` | Error backtraces | `RUST_BACKTRACE=1` |
-| `HTTP_PROXY` | HTTP proxy settings | `HTTP_PROXY=http://proxy:8080` |
-| `HTTPS_PROXY` | HTTPS proxy settings | `HTTPS_PROXY=http://proxy:8080` |
-| `NO_PROXY` | Proxy bypass list | `NO_PROXY=localhost,127.0.0.1` |
+| `RUST_LOG` | Logging level | `RUST_LOG=debug` |
+| `RUST_BACKTRACE` | Error traces | `RUST_BACKTRACE=1` |
+| `HTTP_PROXY` | HTTP proxy | `HTTP_PROXY=http://proxy:8080` |
+| `HTTPS_PROXY` | HTTPS proxy | `HTTPS_PROXY=http://proxy:8080` |
+| `NO_PROXY` | Proxy exceptions | `NO_PROXY=localhost,127.0.0.1` |
 
-### Proxy Configuration
+### Proxy Settings
 
-For corporate or restricted environments:
+For restricted environments:
 
 ```bash
 # HTTP proxy
@@ -111,31 +108,31 @@ export ALL_PROXY=socks5://proxy.company.com:1080
 twars-url2md -i urls.txt -o output/ -v
 ```
 
-### Debug Configuration
+### Debug Settings
 
-Enhanced debugging for troubleshooting:
+For troubleshooting:
 
 ```bash
-# Full debug mode with backtraces
+# Full debug with backtraces
 RUST_LOG=trace RUST_BACKTRACE=full twars-url2md -i problematic_urls.txt -o debug_output/ -v
 
-# Memory debugging (if compiled with debug info)
+# Memory debugging (with debug build)
 RUST_LOG=debug RUST_BACKTRACE=1 valgrind --tool=memcheck twars-url2md -i urls.txt -o output/
 ```
 
 ## Configuration Files
 
-### URL Configuration Files
+### URL Files
 
-Organize URLs with comments and metadata:
+Organize URLs with comments:
 
 ```txt
-# urls.txt - Main documentation URLs
+# urls.txt - Documentation sources
 https://doc.rust-lang.org/book/
 https://doc.rust-lang.org/std/
 https://doc.rust-lang.org/cargo/
 
-# API documentation  
+# API docs  
 https://docs.rs/serde/
 https://docs.rs/tokio/
 https://docs.rs/clap/
@@ -145,31 +142,27 @@ https://forge.rust-lang.org/
 https://rustc-dev-guide.rust-lang.org/
 ```
 
-### Batch Configuration Scripts
+### Batch Processing Script
 
-Create reusable configuration scripts:
+Reusable configuration:
 
 ```bash
 #!/bin/bash
-# config/rust-docs.sh - Rust documentation collection
+# rust-docs.sh
 
 set -euo pipefail
 
-# Configuration
 BASE_OUTPUT="rust_documentation"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 OUTPUT_DIR="${BASE_OUTPUT}_${TIMESTAMP}"
 PACK_FILE="${BASE_OUTPUT}_complete_${TIMESTAMP}.md"
 
-# Logging configuration
 export RUST_LOG=info,twars_url2md=debug
 
-# URL categories
 CORE_URLS="config/rust_core_urls.txt"
 CRATE_URLS="config/rust_crate_urls.txt"
 COMMUNITY_URLS="config/rust_community_urls.txt"
 
-# Processing function
 process_category() {
     local name="$1"
     local url_file="$2"
@@ -187,18 +180,15 @@ process_category() {
     fi
 }
 
-# Main processing
 main() {
     echo "Starting Rust documentation collection..."
     echo "Output directory: $OUTPUT_DIR"
     echo "Pack file: $PACK_FILE"
     
-    # Process categories
     process_category "Core" "$CORE_URLS" "core"
     process_category "Crates" "$CRATE_URLS" "crates"  
     process_category "Community" "$COMMUNITY_URLS" "community"
     
-    # Create combined archive
     echo "Creating combined archive..."
     find "$OUTPUT_DIR" -name "*.md" | \
         twars-url2md --stdin --pack "$PACK_FILE" -v
@@ -211,7 +201,7 @@ main() {
 main "$@"
 ```
 
-### Environment-Specific Configurations
+### Environment-Specific Scripts
 
 === "Development"
     ```bash
@@ -221,7 +211,6 @@ main "$@"
     export RUST_LOG=debug
     export RUST_BACKTRACE=1
     
-    # Use local test URLs
     twars-url2md -i test_urls.txt -o dev_output/ -v
     ```
 
@@ -232,9 +221,8 @@ main "$@"
     
     export RUST_LOG=info
     
-    # Production processing with error handling
     if ! twars-url2md -i prod_urls.txt -o prod_output/ --pack prod_archive.md -v; then
-        echo "Production processing failed" >&2
+        echo "Processing failed" >&2
         exit 1
     fi
     ```
@@ -248,37 +236,34 @@ main "$@"
     
     export RUST_LOG=info,twars_url2md=debug
     
-    # CI-specific output paths
     OUTPUT_DIR="${CI_PROJECT_DIR}/generated_docs"
     ARTIFACT_FILE="${CI_PROJECT_DIR}/docs_archive_${CI_COMMIT_SHA}.md"
     
     mkdir -p "$OUTPUT_DIR"
-    
     twars-url2md -i ci_urls.txt -o "$OUTPUT_DIR/" --pack "$ARTIFACT_FILE" -v
     ```
 
 ## Performance Tuning
 
-### Concurrency Configuration
+### Concurrency
 
-While not directly configurable, you can influence concurrency behavior:
+Influence concurrency through system limits:
 
 ```bash
-# Limit system resources to control concurrency
-ulimit -n 1024  # Limit file descriptors
-ulimit -u 512   # Limit processes
+# Limit file descriptors and processes
+ulimit -n 1024
+ulimit -u 512
 
-# Use nice to lower CPU priority for background processing
+# Lower CPU priority for background work
 nice -n 10 twars-url2md -i large_url_list.txt -o output/ -v
 
-# Process during off-peak hours
+# Schedule off-peak processing
 echo "0 2 * * * /path/to/twars-url2md -i /path/to/urls.txt -o /path/to/output/ -v" | crontab -
 ```
 
-### Memory Management
+### Memory Monitoring
 
 ```bash
-# Monitor memory usage during processing
 {
     twars-url2md -i urls.txt -o output/ -v &
     PID=$!
@@ -292,16 +277,14 @@ echo "0 2 * * * /path/to/twars-url2md -i /path/to/urls.txt -o /path/to/output/ -
 } | tee memory_usage.log
 ```
 
-### Network Configuration
+### Network Settings
 
 ```bash
-# Timeout configuration (system-level)
-# These affect the underlying curl library
+# Custom CA bundle
+export CURL_CA_BUNDLE=/path/to/custom/ca-bundle.crt
+export SSL_CERT_FILE=/path/to/custom/ca-bundle.crt
 
-export CURL_CA_BUNDLE=/path/to/custom/ca-bundle.crt  # Custom CA bundle
-export SSL_CERT_FILE=/path/to/custom/ca-bundle.crt   # Alternative CA bundle
-
-# Corporate firewall handling
+# Corporate firewall settings
 export http_proxy=http://proxy.company.com:8080
 export https_proxy=http://proxy.company.com:8080
 export no_proxy=localhost,127.0.0.1,*.company.com
@@ -311,18 +294,17 @@ twars-url2md -i corporate_urls.txt -o output/ -v
 
 ## Output Customization
 
-### Directory Structure Templates
+### Directory Organization
 
-Customize output organization:
+Group URLs by domain:
 
 ```bash
 #!/bin/bash
-# Custom output organization
+# group_by_domain.sh
 
 process_by_domain() {
     local url_file="$1"
     
-    # Group URLs by domain
     awk -F'/' '{print $3}' "$url_file" | sort -u | while read -r domain; do
         grep "$domain" "$url_file" > "urls_${domain}.txt"
         mkdir -p "output_by_domain/$domain"
@@ -334,18 +316,17 @@ process_by_domain() {
 process_by_domain "all_urls.txt"
 ```
 
-### Content Processing Templates
+### Content Post-processing
 
 ```bash
 #!/bin/bash
-# Content post-processing
+# post_process.sh
 
-# Standard processing
+# Process URLs
 twars-url2md -i urls.txt -o raw_output/ -v
 
-# Post-process markdown files
+# Add headers to markdown files
 find raw_output -name "*.md" | while read -r file; do
-    # Add custom header
     {
         echo "---"
         echo "generated: $(date -Iseconds)"
@@ -358,7 +339,7 @@ done
 
 # Create index
 {
-    echo "# Generated Documentation Index"
+    echo "# Documentation Index"
     echo ""
     echo "Generated on: $(date)"
     echo ""
@@ -369,36 +350,31 @@ done
 } > raw_output/INDEX.md
 ```
 
-## Integration Configurations
+## Integration
 
-### Docker Configuration
+### Docker
 
 ```dockerfile
-# Dockerfile for configured environment
+# Dockerfile
 FROM ubuntu:22.04
 
-# Install dependencies
 RUN apt-get update && apt-get install -y \
     curl \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install twars-url2md
 RUN curl -fsSL https://raw.githubusercontent.com/twardoch/twars-url2md/main/install.sh | bash
 
-# Set environment
 ENV RUST_LOG=info
 ENV PATH=/root/.local/bin:$PATH
 
-# Copy configuration
 COPY config/ /app/config/
 WORKDIR /app
 
-# Default command
 CMD ["twars-url2md", "-i", "config/urls.txt", "-o", "output/", "-v"]
 ```
 
-### Kubernetes Configuration
+### Kubernetes
 
 ```yaml
 # k8s-job.yaml
@@ -437,7 +413,7 @@ spec:
       restartPolicy: Never
 ```
 
-### Systemd Service Configuration
+### Systemd Service
 
 ```ini
 # /etc/systemd/system/url-processor.service
@@ -458,8 +434,7 @@ StandardError=journal
 WantedBy=multi-user.target
 ```
 
-```bash
-# Timer for periodic processing
+```ini
 # /etc/systemd/system/url-processor.timer
 [Unit]
 Description=Run URL processor daily
@@ -473,42 +448,41 @@ Persistent=true
 WantedBy=timers.target
 ```
 
-## Troubleshooting Configuration
+## Troubleshooting
 
-### Debug Configuration
+### Debug Script
 
 ```bash
 #!/bin/bash
-# debug_config.sh - Comprehensive debugging
+# debug.sh
 
-set -x  # Enable command tracing
+set -x
 
-# Environment debugging
 echo "=== Environment ==="
 env | grep -E "(RUST|HTTP|PROXY)" | sort
 
-echo "=== System Information ==="
+echo "=== System Info ==="
 uname -a
 which twars-url2md
 twars-url2md --version
 
-echo "=== Network Connectivity ==="
+echo "=== Network Test ==="
 curl -I https://httpbin.org/get
 
 echo "=== Processing Test ==="
 RUST_LOG=trace RUST_BACKTRACE=full \
     twars-url2md https://httpbin.org/html -o debug_test/ -v
 
-echo "=== Debug Results ==="
+echo "=== Results ==="
 find debug_test -type f -exec ls -la {} \;
 find debug_test -name "*.md" -exec head -5 {} \;
 ```
 
-### Configuration Validation
+### Configuration Validator
 
 ```bash
 #!/bin/bash
-# validate_config.sh
+# validate.sh
 
 validate_urls() {
     local url_file="$1"
@@ -516,7 +490,6 @@ validate_urls() {
     echo "Validating URLs in $url_file..."
     
     while IFS= read -r url; do
-        # Skip comments and empty lines
         [[ "$url" =~ ^[[:space:]]*# ]] && continue
         [[ -z "${url// }" ]] && continue
         
@@ -531,27 +504,23 @@ validate_urls() {
 validate_environment() {
     echo "Validating environment..."
     
-    # Check binary
     if command -v twars-url2md >/dev/null 2>&1; then
-        echo "✓ twars-url2md binary found"
+        echo "✓ Binary found"
     else
-        echo "✗ twars-url2md binary not found in PATH"
+        echo "✗ Binary missing"
         return 1
     fi
     
-    # Check version
     twars-url2md --version
     
-    # Check network
     if curl -s https://httpbin.org/get >/dev/null; then
-        echo "✓ Network connectivity OK"
+        echo "✓ Network OK"
     else
-        echo "✗ Network connectivity failed"
+        echo "✗ Network failed"
         return 1
     fi
 }
 
-# Run validations
 validate_environment
 validate_urls "$1"
 ```
@@ -559,9 +528,8 @@ validate_urls "$1"
 ---
 
 !!! tip "Configuration Best Practices"
-    - Use environment variables for sensitive data (proxies, credentials)
-    - Create reusable configuration scripts for common workflows
-    - Test configurations in development before production deployment
-    - Document custom configurations for team members
-    - Use version control for configuration files and scripts
-    - Monitor resource usage and adjust configurations accordingly
+    - Store sensitive data in environment variables
+    - Use version control for configuration files
+    - Test configurations before deployment
+    - Monitor resource usage
+    - Document custom workflows

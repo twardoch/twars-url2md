@@ -4,9 +4,8 @@
 //!
 //! ## Overview
 //!
-//! `twars-url2md` fetches web pages, cleans their HTML content using Monolith, and converts them
-//! to readable Markdown format. It supports concurrent processing, intelligent error recovery,
-//! and flexible output options.
+//! `twars-url2md` fetches web pages using libcurl and converts them to readable Markdown format
+//! using htmd. It supports concurrent processing, intelligent error recovery, and flexible output options.
 //!
 //! ## Features
 //!

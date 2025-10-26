@@ -1,8 +1,8 @@
-# Comprehensive Test Plan for twars-url2md
+# Test Plan for twars-url2md
 
 ## Overview
 
-This document outlines the comprehensive test strategy for the `twars-url2md` project, a Rust CLI application that downloads URLs and converts them to clean, readable Markdown files. The test suite aims to ensure reliability, correctness, and robustness across all components.
+This document describes the test strategy for `twars-url2md`, a Rust CLI tool that downloads URLs and converts them to clean Markdown files. The goal is to ensure correctness, reliability, and performance across all components.
 
 ## Test Structure
 
@@ -14,102 +14,102 @@ This document outlines the comprehensive test strategy for the `twars-url2md` pr
   - Extract URLs from Markdown links
   - Extract URLs from HTML href attributes
   - Handle mixed format inputs
-  - Handle URLs with special characters and encodings
-  - Test empty and malformed inputs
+  - Process URLs with special characters and encodings
+  - Handle empty and malformed inputs
 
 - **URL Validation**
   - Validate HTTP/HTTPS URLs
   - Reject invalid protocols
-  - Handle relative URLs with base URL resolution
-  - Test URL normalization (trailing slashes, fragments)
+  - Resolve relative URLs with base URL
+  - Normalize URLs (trailing slashes, fragments)
   - Handle internationalized domain names (IDN)
 
 - **URL Processing**
-  - Deduplicate URLs correctly
-  - Preserve URL ordering when required
-  - Handle query parameters and fragments appropriately
+  - Deduplicate URLs
+  - Preserve URL ordering
+  - Handle query parameters and fragments
 
 #### 1.2 HTML Module (`src/html.rs`)
 - **HTML Fetching**
-  - Mock HTTP requests for different status codes (200, 404, 500, etc.)
-  - Test timeout handling
-  - Test redirect following (301, 302)
-  - Handle large HTML documents
-  - Test content-type validation
+  - Mock HTTP requests for status codes (200, 404, 500)
+  - Handle timeouts
+  - Follow redirects (301, 302)
+  - Process large HTML documents
+  - Validate content types
 
 - **Monolith Integration**
-  - Test HTML cleaning with various configurations
-  - Handle JavaScript-heavy pages
-  - Test CSS inlining behavior
-  - Verify image handling (base64 encoding vs. external)
-  - Test iframe and embedded content handling
+  - Clean HTML with various configurations
+  - Process JavaScript-heavy pages
+  - Inline CSS
+  - Handle images (base64 vs. external)
+  - Process iframe and embedded content
 
 - **Error Recovery**
-  - Test panic recovery from Monolith crashes
-  - Verify fallback mechanisms for non-HTML content
-  - Test retry logic for transient failures
+  - Recover from Monolith crashes
+  - Fallback for non-HTML content
+  - Retry transient failures
 
 #### 1.3 Markdown Module (`src/markdown.rs`)
 - **HTML to Markdown Conversion**
-  - Test basic HTML elements (p, div, span)
-  - Test headings (h1-h6) conversion
-  - Test list conversion (ul, ol, nested lists)
-  - Test link preservation
-  - Test image alt text and URLs
-  - Test code blocks and inline code
-  - Test table conversion
-  - Test blockquote handling
-  - Handle malformed HTML gracefully
+  - Convert basic HTML elements (p, div, span)
+  - Convert headings (h1-h6)
+  - Convert lists (ul, ol, nested)
+  - Preserve links
+  - Handle image alt text and URLs
+  - Convert code blocks and inline code
+  - Convert tables
+  - Handle blockquotes
+  - Process malformed HTML
 
 - **Content Cleaning**
   - Remove script and style tags
   - Preserve semantic structure
   - Handle special characters and entities
-  - Test Unicode handling
+  - Process Unicode
 
 #### 1.4 CLI Module (`src/cli.rs`)
 - **Argument Parsing**
   - Test all CLI flags and options
   - Validate mutually exclusive options
   - Test default values
-  - Verify help text accuracy
+  - Verify help text
   - Test argument validation and error messages
 
 - **Input Handling**
   - Read from stdin
   - Read from files
   - Handle multiple input sources
-  - Test glob pattern expansion
-  - Handle non-existent files gracefully
+  - Expand glob patterns
+  - Handle non-existent files
 
 #### 1.5 Library Module (`src/lib.rs`)
 - **Orchestration Logic**
-  - Test sequential vs. concurrent processing modes
-  - Verify CPU core detection and adaptation
+  - Test sequential vs. concurrent modes
+  - Verify CPU core detection
   - Test progress reporting
-  - Verify output organization logic
+  - Verify output organization
 
 - **Path Generation**
-  - Test URL-to-filesystem path conversion
+  - Convert URLs to filesystem paths
   - Handle special characters in paths
-  - Test collision handling
-  - Verify directory creation
-  - Test both flat and hierarchical output modes
+  - Handle path collisions
+  - Create directories
+  - Test flat and hierarchical output modes
 
 ### 2. Integration Tests
 
 #### 2.1 End-to-End Workflows
 - **Single URL Processing**
-  - Download and convert a simple HTML page
-  - Process a complex web page with images and styles
-  - Handle a non-HTML resource (PDF, image)
-  - Test local file processing
+  - Download and convert simple HTML
+  - Process complex pages with images/styles
+  - Handle non-HTML resources (PDF, images)
+  - Process local files
 
 - **Batch Processing**
-  - Process multiple URLs from a file
+  - Process multiple URLs from file
   - Test concurrent processing limits
   - Verify output file organization
-  - Test packed mode output
+  - Test packed mode
 
 - **Error Scenarios**
   - Network timeouts
@@ -122,68 +122,68 @@ This document outlines the comprehensive test strategy for the `twars-url2md` pr
 - Test full Monolith pipeline with real HTML
 - Verify CSS and JavaScript handling
 - Test resource embedding options
-- Confirm panic recovery in real scenarios
+- Confirm panic recovery
 
 ### 3. Performance Tests
 
 #### 3.1 Concurrency Testing
 - **Load Testing**
   - Process 100+ URLs concurrently
-  - Measure memory usage under load
+  - Measure memory usage
   - Test connection pool limits
-  - Verify rate limiting behavior
+  - Verify rate limiting
 
 - **Resource Management**
   - Test file descriptor limits
   - Monitor thread pool usage
-  - Verify cleanup of temporary resources
+  - Verify temporary resource cleanup
 
 #### 3.2 Benchmarks
-- Benchmark URL extraction performance
+- Benchmark URL extraction
 - Benchmark HTML to Markdown conversion
-- Measure overhead of concurrent processing
-- Profile memory allocation patterns
+- Measure concurrent processing overhead
+- Profile memory allocation
 
 ### 4. Property-Based Tests
 
-Using `proptest` or similar:
+Using `proptest`:
 - Generate random URL patterns
-- Test with arbitrary HTML structures
+- Test arbitrary HTML structures
 - Fuzz input parsing
-- Verify invariants hold under random inputs
+- Verify invariants under random inputs
 
 ### 5. Regression Tests
 
-- Specific test cases for reported bugs
-- Edge cases discovered in production
-- Platform-specific issues (Windows paths, etc.)
+- Test cases for reported bugs
+- Production edge cases
+- Platform-specific issues (Windows paths)
 
 ## Test Data and Fixtures
 
 ### Mock Data
-- Sample HTML files of varying complexity
-- Mock HTTP responses for different scenarios
+- HTML samples of varying complexity
+- HTTP responses for different scenarios
 - Test URLs covering various patterns
-- Malformed inputs for error testing
+- Malformed inputs for error cases
 
 ### Test Servers
 - Mock HTTP server for integration tests
 - Configurable response delays
-- Error injection capabilities
+- Error injection
 - Redirect chain testing
 
 ## Testing Infrastructure
 
 ### Continuous Integration
 - Run full test suite on PR
-- Platform matrix (Linux, macOS, Windows)
-- Rust version compatibility testing
-- Dependency audit
+- Test on Linux, macOS, Windows
+- Verify Rust version compatibility
+- Run dependency audits
 
 ### Code Coverage
-- Target: 80% line coverage minimum
+- Minimum 80% line coverage
 - 100% coverage for critical paths
-- Coverage reports in CI
+- Generate coverage reports in CI
 
 ### Test Organization
 ```
@@ -212,7 +212,7 @@ tests/
 # Run all tests
 cargo test --all-features
 
-# Run unit tests only
+# Run unit tests
 cargo test --lib
 
 # Run integration tests
@@ -235,7 +235,7 @@ RUST_LOG=debug cargo test -- --nocapture
 
 1. **Phase 1: Core Functionality**
    - URL extraction and validation
-   - Basic HTML to Markdown conversion
+   - HTML to Markdown conversion
    - CLI argument parsing
 
 2. **Phase 2: Integration**
@@ -250,14 +250,14 @@ RUST_LOG=debug cargo test -- --nocapture
 
 4. **Phase 4: Polish**
    - Platform-specific tests
-   - Regression test suite
+   - Regression suite
    - Documentation tests
 
 ## Success Criteria
 
-- All tests pass in CI
+- All CI tests pass
 - No flaky tests
 - Test execution < 60 seconds
 - Clear test names and documentation
 - Easy to add new test cases
-- Comprehensive error scenario coverage
+- Complete error scenario coverage

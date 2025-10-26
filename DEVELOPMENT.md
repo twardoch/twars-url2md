@@ -1,6 +1,6 @@
 # Development Guide
 
-This guide provides information for developers who want to contribute to or work with the `twars-url2md` codebase.
+This guide explains how to work with the `twars-url2md` codebase. It covers setup, structure, building, testing, and contributing.
 
 ## Table of Contents
 
@@ -18,7 +18,7 @@ This guide provides information for developers who want to contribute to or work
 
 - **Rust**: Version 1.70.0 or later
 - **Git**: For version control
-- **curl**: For HTTP requests (used by dependencies)
+- **curl**: Required by dependencies for HTTP requests
 
 ### Getting Started
 
@@ -101,7 +101,7 @@ cargo fmt --check
 
 ### Using the Build Scripts
 
-We provide convenient scripts for common development tasks:
+Scripts automate common tasks:
 
 ```bash
 # Build the project
@@ -299,4 +299,4 @@ For questions or issues:
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details

@@ -1,6 +1,6 @@
 # Testing
 
-Comprehensive testing strategy and guidelines for `twars-url2md`, covering unit tests, integration tests, benchmarks, and quality assurance processes.
+Testing strategy and guidelines for `twars-url2md`. Covers unit tests, integration tests, benchmarks, and quality assurance.
 
 ## Test Architecture
 
@@ -32,11 +32,11 @@ tests/
 
 ### Test Categories
 
-1. **Unit Tests**: Individual component functionality
-2. **Integration Tests**: End-to-end workflows
-3. **Performance Tests**: Benchmarks and profiling
-4. **Compatibility Tests**: Edge cases and different inputs
-5. **Security Tests**: Input validation and safety
+1. **Unit Tests** - Individual component functionality
+2. **Integration Tests** - End-to-end workflows
+3. **Performance Tests** - Benchmarks and profiling
+4. **Compatibility Tests** - Edge cases and different inputs
+5. **Security Tests** - Input validation and safety
 
 ## Running Tests
 
@@ -649,39 +649,39 @@ jobs:
 
 set -euo pipefail
 
-echo "🧪 Running comprehensive test suite..."
+echo "Running comprehensive test suite..."
 
 # Code formatting
-echo "📋 Checking code formatting..."
+echo "Checking code formatting..."
 cargo fmt --check
 
 # Linting
-echo "🔍 Running clippy..."
+echo "Running clippy..."
 cargo clippy --all-targets --all-features -- -D warnings
 
 # Unit tests
-echo "🔬 Running unit tests..."
+echo "Running unit tests..."
 cargo test --lib --all-features --verbose
 
 # Integration tests
-echo "🔗 Running integration tests..."
+echo "Running integration tests..."
 cargo test --test '*' --all-features --verbose
 
 # Doc tests
-echo "📚 Running documentation tests..."
+echo "Running documentation tests..."
 cargo test --doc --all-features
 
 # Security audit
-echo "🛡️  Running security audit..."
+echo "Running security audit..."
 cargo audit
 
 # Benchmarks (optional)
 if [[ "${RUN_BENCHMARKS:-false}" == "true" ]]; then
-    echo "⚡ Running benchmarks..."
+    echo "Running benchmarks..."
     cargo bench
 fi
 
-echo "✅ All tests passed!"
+echo "All tests passed!"
 ```
 
 ### Continuous Monitoring
@@ -701,16 +701,16 @@ cargo watch -x "test --all-features" -x "clippy --all-targets --all-features"
 
 ---
 
-!!! tip "Testing Best Practices"
-    - **Write tests first** for new features (TDD approach)
-    - **Test edge cases** and error conditions
-    - **Use realistic test data** from fixtures
-    - **Keep tests fast** and independent
-    - **Mock external dependencies** appropriately
-    - **Measure and maintain** good test coverage
+**Testing Best Practices**
+- Write tests first for new features (TDD approach)
+- Test edge cases and error conditions
+- Use realistic test data from fixtures
+- Keep tests fast and independent
+- Mock external dependencies appropriately
+- Measure and maintain good test coverage
 
-!!! note "Performance Testing"
-    - Run benchmarks regularly to catch performance regressions
-    - Test with realistic data sizes and network conditions
-    - Monitor memory usage during development
-    - Profile critical paths for optimization opportunities
+**Performance Testing**
+- Run benchmarks regularly to catch performance regressions
+- Test with realistic data sizes and network conditions
+- Monitor memory usage during development
+- Profile critical paths for optimization opportunities

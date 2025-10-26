@@ -1,6 +1,6 @@
 # Test Page
 
-This is a simple test page with **bold** and *italic* text.
+This is a test page with **bold** and *italic* text.
 
 * First item
 * Second item

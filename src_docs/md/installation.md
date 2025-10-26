@@ -1,10 +1,10 @@
 # Installation
 
-`twars-url2md` provides multiple installation methods to suit different needs and environments. Choose the method that works best for your setup.
+`twars-url2md` supports several installation methods. Pick the one that fits your environment.
 
 ## Pre-compiled Binaries (Recommended)
 
-Pre-compiled binaries are the fastest way to get started and require no additional dependencies.
+Binaries are ready to use and require no dependencies.
 
 ### One-Line Installation
 
@@ -20,13 +20,13 @@ Pre-compiled binaries are the fastest way to get started and require no addition
 
 === "Windows PowerShell"
     ```powershell
-    # Download and run the Windows installer (manual process)
+    # Download and run the Windows installer manually
     # See manual installation section below
     ```
 
 ### Manual Binary Installation
 
-Download the latest release for your platform from the [GitHub Releases page](https://github.com/twardoch/twars-url2md/releases/latest).
+Download from the [GitHub Releases page](https://github.com/twardoch/twars-url2md/releases/latest).
 
 === "macOS"
     ```bash
@@ -77,27 +77,27 @@ If you have Rust installed (version 1.70.0 or later):
 cargo install twars-url2md
 ```
 
-This method compiles from source and may take a few minutes but ensures you get the latest version optimized for your system.
+This builds from source and may take a few minutes, but gives you an optimized binary for your system.
 
 ### Homebrew (macOS/Linux)
 
 !!! warning "Coming Soon"
-    Homebrew formula is planned for a future release.
+    Homebrew formula planned for a future release.
 
 ### Chocolatey (Windows)
 
 !!! warning "Coming Soon"
-    Chocolatey package is planned for a future release.
+    Chocolatey package planned for a future release.
 
 ## Building from Source
 
-For developers or users who want the latest features:
+For developers or those who want the latest features:
 
 ### Prerequisites
 
 - **Rust**: Version 1.70.0 or later ([Install Rust](https://rustup.rs/))
 - **Git**: For cloning the repository
-- **C compiler**: Usually included with system development tools
+- **C compiler**: Usually part of system development tools
 
 ### Build Process
 
@@ -109,7 +109,7 @@ cd twars-url2md
 # Build in release mode (optimized)
 cargo build --release
 
-# The binary will be in target/release/twars-url2md
+# Binary located at target/release/twars-url2md
 ```
 
 ### Install Locally
@@ -133,7 +133,7 @@ cargo run -- --help
 
 ## Verification
 
-After installation, verify that `twars-url2md` is working correctly:
+After installation, verify that `twars-url2md` works correctly:
 
 ```bash
 # Check version and build info
@@ -143,13 +143,13 @@ twars-url2md --version
 twars-url2md https://httpbin.org/html -o test_output/
 ```
 
-Expected output should show version information and successfully create a markdown file.
+Expected output shows version information and creates a markdown file.
 
 ## Container Usage
 
 ### Docker
 
-While there's no official Docker image yet, you can create one using the static binary:
+No official Docker image yet, but you can create one using the static binary:
 
 ```dockerfile
 FROM alpine:latest
@@ -237,11 +237,11 @@ docker run -v $(pwd)/output:/output twars-url2md https://example.com -o /output
 
 ## Next Steps
 
-Once installed, proceed to the [Quick Start Guide](quickstart.md) to learn basic usage, or jump to [Basic Usage](usage.md) for comprehensive command-line documentation.
+Once installed, see the [Quick Start Guide](quickstart.md) for basic usage or [Basic Usage](usage.md) for full command-line documentation.
 
 ---
 
 !!! tip "Stay Updated"
     - Watch the [GitHub repository](https://github.com/twardoch/twars-url2md) for new releases
     - Check the [changelog](https://github.com/twardoch/twars-url2md/releases) for version updates
-    - Consider enabling GitHub notifications for release announcements
+    - Enable GitHub notifications for release announcements

@@ -3,7 +3,7 @@ name = "twars-url2md"
 version = "0.0.0"
 edition = "2021"
 authors = ["Adam Twardoch <adam+github@twardoch.com>"]
-description = "A powerful CLI tool that fetches web pages and converts them to clean Markdown format using Monolith for content extraction and htmd for conversion"
+description = "A powerful CLI tool that fetches web pages and converts them to clean Markdown format using curl for fetching and htmd for HTML-to-Markdown conversion"
 documentation = "https://github.com/twardoch/twars-url2md"
 homepage = "https://github.com/twardoch/twars-url2md"
 repository = "https://github.com/twardoch/twars-url2md"
@@ -81,9 +81,6 @@ version = "0.3"
 features = ["env-filter", "fmt"]
 
 
-[dependencies.monolith]
-version = "^2.10"
-features = []
 
 
 [dependencies.regex]
@@ -119,6 +116,10 @@ features = []
 [dev-dependencies]
 tempfile = "3.10"
 mockito = "1.2"
+
+[dev-dependencies.monolith]
+version = "^2.10"
+features = []
 
 
 [build-dependencies.built]

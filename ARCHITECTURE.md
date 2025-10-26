@@ -2,7 +2,7 @@
 
 ## Overview
 
-`twars-url2md` is designed as a high-performance, concurrent web scraping and conversion tool. The architecture emphasizes modularity, error resilience, and scalability.
+`twars-url2md` is a concurrent web scraping and conversion tool. The architecture emphasizes modularity, error resilience, and scalability.
 
 ## System Architecture
 
@@ -33,73 +33,72 @@
 - Parse command-line arguments using Clap
 - Handle input from files or stdin
 - Configure logging and verbosity
-- Implement panic recovery for robustness
+- Implement panic recovery
 
-**Key Features:**
+**Features:**
 - Flexible input methods
-- Custom error messages for better UX
-- Panic hook to prevent crashes from malformed HTML
+- Custom error messages
+- Panic hook for malformed HTML
 
 ### 2. URL Processing (`src/url.rs`)
 
 **Responsibilities:**
-- Extract URLs from various text formats
+- Extract URLs from text
 - Validate and normalize URLs
 - Create filesystem paths from URL structure
-- Handle relative URL resolution
+- Resolve relative URLs
 
-**Design Decisions:**
-- Uses `linkify` for robust URL detection
-- Supports HTML parsing with `html5ever`
-- Handles local file paths (file:// protocol)
-- Deduplicates URLs automatically
+**Implementation:**
+- `linkify` for URL detection
+- `html5ever` for HTML parsing
+- Support for local file paths (file://)
+- Automatic deduplication
 
 ### 3. HTML Processing (`src/html.rs`)
 
 **Responsibilities:**
-- Fetch HTML content from URLs
-- Clean HTML using Monolith
+- Fetch HTML content
+- Clean HTML with Monolith
 - Handle timeouts and retries
-- Manage HTTP client configuration
+- Configure HTTP client
 
-**Architecture Highlights:**
-- Curl-based HTTP client with browser-like behavior
-- Panic recovery for Monolith operations
-- Configurable retry mechanism with exponential backoff
-- Resource cleanup and connection pooling
+**Features:**
+- Curl-based HTTP client
+- Panic recovery for Monolith
+- Exponential backoff retries
+- Connection pooling
 
-**HTTP Client Configuration:**
-- Auto-negotiates HTTP version (HTTP/2 preferred)
-- Sends comprehensive browser headers to avoid bot detection
-- User-Agent: Chrome 120 on macOS
-- Includes Sec-Ch-Ua headers for modern CDN compatibility
-- 20-second connection timeout, 60-second total timeout
+**HTTP Configuration:**
+- HTTP/2 preferred
+- Chrome 120 User-Agent on macOS
+- Sec-Ch-Ua headers for CDN compatibility
+- 20-second connection timeout, 60-second total
 
 ### 4. Markdown Conversion (`src/markdown.rs`)
 
 **Responsibilities:**
-- Convert cleaned HTML to Markdown
+- Convert HTML to Markdown
 - Preserve document structure
-- Handle edge cases gracefully
+- Handle edge cases
 
 **Implementation:**
-- Thin wrapper around `htmd` library
+- Wrapper around `htmd`
 - Fallback for conversion failures
-- Preserves semantic structure
+- Semantic structure preservation
 
 ### 5. Core Library (`src/lib.rs`)
 
 **Responsibilities:**
-- Orchestrate URL processing pipeline
+- Orchestrate processing pipeline
 - Manage concurrent operations
-- Handle output file generation
-- Progress tracking for batch operations
+- Generate output files
+- Track progress
 
-**Concurrency Model:**
-- Adaptive worker pool based on CPU cores
-- Semaphore-based concurrency limiting
-- Async/await with Tokio runtime
-- Progress bars for user feedback
+**Concurrency:**
+- Worker pool based on CPU cores
+- Semaphore limiting
+- Tokio async/await runtime
+- Progress bars
 
 ## Data Flow
 
@@ -136,120 +135,120 @@ URL Extraction ──────► URL Validation
     Structure          Output
 ```
 
-## Error Handling Strategy
+## Error Handling
 
 ### 1. Graceful Degradation
-- Monolith panic → Simple HTML cleanup fallback
-- HTTP timeout → Curl fallback
-- Conversion failure → Basic text extraction
+- Monolith panic → Basic HTML cleanup
+- HTTP timeout → Curl retry
+- Conversion failure → Text extraction
 
 ### 2. Retry Mechanism
 ```rust
 Retry Logic:
 - Initial attempt
-- Retry 1: Wait 1 second
-- Retry 2: Wait 2 seconds  
-- Retry 3: Wait 4 seconds
+- Retry 1: 1 second delay
+- Retry 2: 2 second delay  
+- Retry 3: 4 second delay
 - Report failure
 ```
 
 ### 3. Error Propagation
-- Uses `anyhow` for rich error context
-- Collects all errors for batch reporting
-- Non-blocking: one failure doesn't stop others
+- `anyhow` for error context
+- Collect all errors in batch mode
+- Continue processing after failures
 
-## Performance Optimizations
+## Performance
 
 ### 1. Concurrency
-- Worker pool size: `min(CPU_COUNT * 2, 16)`
+- Worker pool: `min(CPU_COUNT * 2, 16)`
 - Prevents resource exhaustion
 - Balances throughput and system load
 
-### 2. Memory Management
+### 2. Memory
 - Streaming for large documents
-- Reuse of HTTP client connections
+- Connection reuse
 - Efficient string operations
 
-### 3. I/O Optimization
+### 3. I/O
 - Async file operations
 - Buffered writing
-- Directory creation batching
+- Batched directory creation
 
-## Security Considerations
+## Security
 
-### 1. Content Security
-- JavaScript execution disabled
+### 1. Content
+- No JavaScript execution
 - No external resource loading
-- CSS and images stripped by default
+- CSS and images stripped
 - iframe content ignored
 
-### 2. Network Security
-- User agent spoofing for compatibility
-- SSL/TLS verification (configurable)
-- Timeout protection against slow servers
+### 2. Network
+- Spoofed User-Agent
+- Configurable SSL/TLS verification
+- Timeout protection
 
-### 3. File System Security
-- Path sanitization for output files
-- No directory traversal attacks
-- Safe handling of special characters
+### 3. File System
+- Path sanitization
+- No directory traversal
+- Safe special character handling
 
 ## Extension Points
 
 ### 1. URL Extractors
-New extractors can be added by:
-- Implementing pattern matching logic
+Add new extractors by:
+- Implementing pattern matching
 - Adding to `extract_urls_from_text`
-- Following existing validation patterns
+- Following validation patterns
 
 ### 2. Output Formats
-Additional formats could include:
-- JSON structured data
-- EPUB for e-readers
-- Plain text extraction
+Potential additions:
+- JSON
+- EPUB
+- Plain text
 
 ### 3. Processing Plugins
-Potential plugin points:
+Options include:
 - Custom HTML processors
 - Content filters
 - Metadata extractors
 
-## Testing Strategy
+## Testing
 
 ### Unit Tests
-- Module-level testing with 40+ unit tests
-- Mock HTTP responses using curl
-- Edge case coverage for URL parsing, HTML processing
-- Test fixtures for various HTML structures
+- 40+ module-level tests
+- Mock HTTP with curl
+- URL parsing edge cases
+- HTML structure fixtures
 
 ### Integration Tests
-- End-to-end workflows (6+ integration test files)
-- Real HTML processing with local files
-- Concurrent operation testing
-- Output mode verification (directory, single file, pack)
+- 6+ end-to-end workflows
+- Local file processing
+- Concurrency verification
+- Output mode testing
 
 ### Performance Tests
-- Load testing with 100+ URLs
-- Memory usage profiling
-- Bottleneck identification
-- Timeout and retry mechanism testing
+- 100+ URL load testing
+- Memory profiling
+- Bottleneck analysis
+- Timeout/retry validation
 
-### Issue Verification Suite
-- Comprehensive test script (`issues/issuetest.py`)
-- Validates all reported issues are resolved
-- Tests CLI functionality, output modes, logging
-- Ensures regression prevention
+### Issue Verification
+- `issues/issuetest.py` test suite
+- Validates bug fixes
+- CLI and output testing
+- Regression prevention
 
-## Future Enhancements
+## Future Work
 
-### 1. Streaming Architecture
-- Process large documents without full memory load
-- Progressive output generation
-- Real-time processing pipeline
+### 1. Streaming
+- Process without full memory load
+- Progressive output
+- Real-time pipeline
 
 ### 2. Distributed Processing
-- Job queue for URL processing
-- Horizontal scaling capability
-- Result aggregation service
+- Job queue system
+- Horizontal scaling
+- Result aggregation
 
 ### 3. Smart Caching
 - Content deduplication
@@ -258,55 +257,54 @@ Potential plugin points:
 
 ## CDN Compatibility
 
-### Known Compatible CDNs
-- **Cloudflare**: Full compatibility with bot detection bypass
-- **Fastly**: Works correctly with HTTP/2 negotiation
-- **Akamai**: Handles edge cases properly
-- **Adobe CDN**: Fixed timeout issues with proper headers
+### Compatible CDNs
+- **Cloudflare**: Bot detection bypass
+- **Fastly**: HTTP/2 support
+- **Akamai**: Edge case handling
+- **Adobe CDN**: Timeout fixes
 
-### Key Compatibility Features
-1. **HTTP Version Negotiation**: Never forces HTTP/1.1, allows natural ALPN
-2. **Browser Headers**: Sends full set of modern browser headers
-3. **TLS Fingerprint**: Uses curl which has browser-like TLS behavior
-4. **User-Agent**: Mimics real Chrome browser
+### Compatibility Features
+1. HTTP version negotiation (ALPN)
+2. Modern browser headers
+3. Browser-like TLS behavior
+4. Realistic User-Agent
 
-### Header Strategy
-The application sends these headers to ensure CDN compatibility:
-- User-Agent matching Chrome 120
-- Accept headers for HTML content
-- Sec-Ch-Ua headers for Client Hints
-- Sec-Fetch headers for request metadata
-- Cache-Control and Pragma headers
+### Headers
+- Chrome 120 User-Agent
+- HTML Accept headers
+- Sec-Ch-Ua Client Hints
+- Sec-Fetch metadata
+- Cache-Control/Pragma
 
 ## Dependencies
 
-### Core Dependencies
+### Core
 - `tokio`: Async runtime
-- `curl`: HTTP client (primary)
+- `curl`: HTTP client
 - `monolith`: HTML cleaning
 - `htmd`: Markdown conversion
 - `clap`: CLI parsing
 - `anyhow`: Error handling
 
-### Design Rationale
-- **Tokio**: Industry standard async runtime
-- **Curl**: Better compatibility with CDNs than pure Rust clients
-- **Monolith**: Best-in-class HTML cleaning
-- **htmd**: Fast, accurate MD conversion
+### Rationale
+- Tokio: Standard async runtime
+- Curl: Better CDN compatibility than pure Rust clients
+- Monolith: Superior HTML cleaning
+- htmd: Fast, accurate conversion
 
-## Deployment Considerations
+## Deployment
 
 ### Binary Size
-- Release builds with optimization
-- Strip symbols for smaller size
-- Consider static linking trade-offs
+- Optimized release builds
+- Stripped symbols
+- Static linking trade-offs
 
-### Platform Support
+### Platforms
 - Native binaries for major platforms
-- Cross-compilation setup
-- CI/CD for automated builds
+- Cross-compilation support
+- CI/CD automated builds
 
 ### Configuration
-- Environment variables for runtime config
-- No configuration files needed
+- Environment variables
+- No config files
 - Self-contained operation
