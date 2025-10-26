@@ -23,6 +23,7 @@ target/
 Temporary Items
 work/
 /.specstory
+/.giga
 
 # Build outputs
 builds/

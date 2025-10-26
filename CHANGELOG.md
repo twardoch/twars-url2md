@@ -49,6 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `create_output_path` now calculates deterministic directory structures without touching the filesystem; directories get created lazily when Markdown is written, which keeps synchronous helpers side-effect free and much faster during batch planning/benchmarking
 
 ### Added
+- **Phase 8 Final Validation**:
+  - Added /.giga to .gitignore for better repository hygiene
+  - Comprehensive installation testing via cargo install
+  - Binary size verification (3.2MB - well under 10MB threshold)
 - **Phase 7 Quality Improvements**:
   - Comprehensive documentation in build.rs explaining git version extraction logic and fallback behavior
   - Shell script test suite (tests/scripts_build_help_test.sh) to verify build script help doesn't trigger builds
