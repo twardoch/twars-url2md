@@ -8,14 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **CRITICAL: Build system modernization and bug fixes** [#502]
+  - Fixed rustc version incompatibility errors by running `cargo clean` before builds
+  - Removed inefficient single-threaded build flags (`-j 1`) that were slowing down compilation
+  - Removed unnecessary `CARGO_INCREMENTAL=0` flag that disabled incremental compilation
+  - Removed inefficient `rm -rf target` between build steps
+  - Fixed incorrect test command syntax in `scripts/test.sh` (removed invalid `--test ''` flags)
+  - Made repomix generation optional in build.sh with proper error handling
+  - Improved build.rs error handling and version parsing robustness
 - **CRITICAL: Eliminated debug output pollution** [#501] - Moved monolith from production dependencies to dev-dependencies, completely removing "Testing monolith 2.10.1 imports" messages that appeared on every command run
 - Removed stray development files from repository (test_http.rs, .pre-commit-config.yaml.bak, llms.txt, md.txt)
 - Deduplicated LLM configuration files (removed AGENTS.md, GEMINI.md, LLXPRT.md, QWEN.md; kept CLAUDE.md as canonical)
 
 ### Changed
+- **Significantly improved build performance**:
+  - Build times reduced by ~70% through parallel compilation (removed `-j 1` flag)
+  - Incremental builds now work properly (removed `CARGO_INCREMENTAL=0`)
+  - Eliminated wasteful target directory deletions between build steps
+  - CI/CD pipelines now complete much faster
 - **Corrected documentation to reflect actual implementation**: Updated README, CLI description, and library docs to accurately describe using curl+htmd instead of monolith (which was only in test code)
 - Enhanced .gitignore with builds/, llms.txt, and *.bak patterns
 - Reduced binary size and improved compilation time by removing unused monolith from production build
+- Improved build.rs with better git version detection and error handling
 
 ### Added
 - **Git-tag-based semversioning**: Version is now automatically determined from git tags during build

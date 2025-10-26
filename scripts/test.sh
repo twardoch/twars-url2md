@@ -123,16 +123,16 @@ fi
 # Unit tests
 if [ "$RUN_UNIT_TESTS" = true ]; then
     echo "🧪 Running unit tests..."
-    
+
     # Test src/ modules
     if run_test "library unit tests" "cargo test --lib $CARGO_VERBOSE_FLAG"; then
         ((TESTS_PASSED++))
     else
         ((TESTS_FAILED++))
     fi
-    
+
     # Test specific unit test modules
-    if run_test "URL extraction tests" "cargo test --test '' tests::unit::url_tests $CARGO_VERBOSE_FLAG"; then
+    if run_test "URL extraction tests" "cargo test tests::unit::url_tests $CARGO_VERBOSE_FLAG"; then
         ((TESTS_PASSED++))
     else
         ((TESTS_FAILED++))
@@ -142,11 +142,11 @@ fi
 # Integration tests
 if [ "$RUN_INTEGRATION_TESTS" = true ]; then
     echo "🔗 Running integration tests..."
-    
+
     # Note: Integration tests might be disabled due to mockito version issues
     # Check if integration tests are enabled
-    if grep -q "mod integration;" tests/tests.rs; then
-        if run_test "integration tests" "cargo test --test '' tests::integration $CARGO_VERBOSE_FLAG"; then
+    if [ -f "tests/tests.rs" ] && grep -q "mod integration;" tests/tests.rs 2>/dev/null; then
+        if run_test "integration tests" "cargo test tests::integration $CARGO_VERBOSE_FLAG"; then
             ((TESTS_PASSED++))
         else
             ((TESTS_FAILED++))
@@ -154,9 +154,9 @@ if [ "$RUN_INTEGRATION_TESTS" = true ]; then
     else
         yellow "⚠️  Integration tests are disabled (mockito compatibility)"
     fi
-    
+
     # Run end-to-end tests directly
-    if run_test "end-to-end tests" "cargo test --test '' e2e_tests $CARGO_VERBOSE_FLAG"; then
+    if run_test "end-to-end tests" "cargo test e2e_tests $CARGO_VERBOSE_FLAG"; then
         ((TESTS_PASSED++))
     else
         ((TESTS_FAILED++))
@@ -166,8 +166,8 @@ fi
 # Benchmark tests
 if [ "$RUN_BENCHMARK_TESTS" = true ]; then
     echo "⚡ Running benchmark tests..."
-    
-    if run_test "benchmark tests" "cargo test --test '' benchmark_tests $CARGO_VERBOSE_FLAG"; then
+
+    if run_test "benchmark tests" "cargo test benchmark_tests $CARGO_VERBOSE_FLAG"; then
         ((TESTS_PASSED++))
     else
         ((TESTS_FAILED++))

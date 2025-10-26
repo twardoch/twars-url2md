@@ -177,8 +177,6 @@ async fn fetch_html_with_curl(url: &str) -> Result<String> {
     .context("curl blocking task failed")?
 }
 
-/// Fetch HTML content from a URL using monolith with specified options
-
 // Generic retry wrapper for async operations
 async fn retry_operation<F, T, Fut>(
     operation: F,

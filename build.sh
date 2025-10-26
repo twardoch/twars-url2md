@@ -4,7 +4,11 @@
 
 set -euo pipefail
 
-npx repomix -o llms.txt .
+# Optional: Generate llms.txt if repomix is available
+if command -v npx >/dev/null 2>&1 && npx -y repomix --version >/dev/null 2>&1; then
+    echo "📦 Generating llms.txt with repomix..."
+    npx repomix -o llms.txt . 2>/dev/null || echo "⚠️  Repomix generation failed, continuing..."
+fi
 
 # Colors for output
 RED='\033[0;31m'

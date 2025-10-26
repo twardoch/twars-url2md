@@ -51,7 +51,7 @@ jobs:
         if: matrix.rust == 'stable'
 
       - name: Run clippy
-        run: cargo clippy --all-targets --all-features
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Run unit tests
         run: cargo test --lib --all-features
@@ -140,9 +140,6 @@ jobs:
     needs: [test, security-audit, docs-check]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-      release_id: ${{ steps.create_release.outputs.id }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -153,34 +150,27 @@ jobs:
         run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag_name.outputs.tag }}
-          release_name: Release ${{ steps.tag_name.outputs.tag }}
+          name: Release ${{ steps.tag_name.outputs.tag }}
           draft: false
           prerelease: ${{ contains(steps.tag_name.outputs.tag, '-') }}
+          generate_release_notes: true
           body: |
-            ## Changes
-            
-            This release includes various improvements and bug fixes.
-            
             ## Installation
-            
+
             ### From GitHub Releases
-            
+
             Download the appropriate binary for your platform from the assets below.
-            
+
             ### From crates.io
-            
+
             ```bash
             cargo install twars-url2md
             ```
-            
+
             ### From Source
-            
+
             ```bash
             git clone https://github.com/twardoch/twars-url2md.git
             cd twars-url2md
@@ -251,9 +241,9 @@ jobs:
           if [ "${{ runner.os }}" = "Windows" ]; then
             binary_name="twars-url2md.exe"
           fi
-          
+
           binary_path="target/${{ matrix.target }}/release/$binary_name"
-          
+
           if [ "${{ runner.os }}" = "Windows" ]; then
             7z a "${{ matrix.name }}.zip" "$binary_path"
             echo "asset_name=${{ matrix.name }}.zip" >> $GITHUB_ENV
@@ -265,14 +255,9 @@ jobs:
           fi
 
       - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ${{ env.asset_path }}
-          asset_name: ${{ env.asset_name }}
-          asset_content_type: application/octet-stream
+          files: ${{ env.asset_path }}
 
   publish-crate:
     name: Publish to crates.io

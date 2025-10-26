@@ -1,3 +1,5 @@
+// this_file: build.rs
+
 use std::process::Command;
 
 fn main() {
@@ -6,23 +8,30 @@ fn main() {
         println!("cargo:rustc-env=CARGO_PKG_VERSION={}", version);
     }
 
-    built::write_built_file().expect("Failed to acquire build-time information");
+    // Write build-time information
+    if let Err(e) = built::write_built_file() {
+        eprintln!("Warning: Failed to acquire build-time information: {}", e);
+        // Don't fail the build, just warn
+    }
+
+    // Rebuild triggers
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=.git/refs/tags");
+    println!("cargo:rerun-if-changed=.git/HEAD");
+    println!("cargo:rerun-if-changed=.git/refs/");
 }
 
 fn get_version_from_git() -> Result<String, Box<dyn std::error::Error>> {
     // Try to get version from git describe
     let output = Command::new("git")
-        .args(&["describe", "--tags", "--exact-match"])
+        .args(["describe", "--tags", "--exact-match"])
         .output();
 
     if let Ok(output) = output {
         if output.status.success() {
             let tag = String::from_utf8(output.stdout)?.trim().to_string();
             // Remove 'v' prefix if present
-            let version = if tag.starts_with('v') {
-                &tag[1..]
+            let version = if let Some(stripped) = tag.strip_prefix('v') {
+                stripped
             } else {
                 &tag
             };
@@ -32,7 +41,7 @@ fn get_version_from_git() -> Result<String, Box<dyn std::error::Error>> {
 
     // Fallback: try to get latest tag + commit count
     let output = Command::new("git")
-        .args(&["describe", "--tags", "--always", "--dirty"])
+        .args(["describe", "--tags", "--always", "--dirty"])
         .output();
 
     if let Ok(output) = output {
@@ -51,15 +60,11 @@ fn get_version_from_git() -> Result<String, Box<dyn std::error::Error>> {
 
 fn parse_git_describe(describe: &str) -> Option<String> {
     // Remove 'v' prefix if present
-    let describe = if describe.starts_with('v') {
-        &describe[1..]
-    } else {
-        describe
-    };
+    let describe = describe.strip_prefix('v').unwrap_or(describe);
 
     // Handle dirty suffix
-    let (describe, dirty) = if describe.ends_with("-dirty") {
-        (&describe[..describe.len() - 6], true)
+    let (describe, dirty) = if let Some(stripped) = describe.strip_suffix("-dirty") {
+        (stripped, true)
     } else {
         (describe, false)
     };
@@ -67,27 +72,29 @@ fn parse_git_describe(describe: &str) -> Option<String> {
     // Parse format: "1.2.3-5-g1234567" or "1.2.3"
     let parts: Vec<&str> = describe.split('-').collect();
 
-    match parts.len() {
+    let version = match parts.len() {
         1 => {
-            // Exact tag match
-            let mut version = parts[0].to_string();
-            if dirty {
-                version.push_str("-dirty");
-            }
-            Some(version)
+            // Exact tag match (e.g., "1.2.3")
+            parts[0].to_string()
         }
-        3 => {
-            // Tag + commits + hash
+        3 if parts[2].starts_with('g') => {
+            // Tag + commits + hash (e.g., "1.2.3-5-g1234567")
             let base_version = parts[0];
             let commit_count = parts[1];
             let hash = parts[2];
-
-            let mut version = format!("{}-dev.{}.{}", base_version, commit_count, hash);
-            if dirty {
-                version.push_str("-dirty");
-            }
-            Some(version)
+            format!("{}-dev.{}.{}", base_version, commit_count, hash)
         }
-        _ => None,
-    }
+        _ => {
+            // Fallback for unexpected formats
+            describe.to_string()
+        }
+    };
+
+    let final_version = if dirty {
+        format!("{}-dirty", version)
+    } else {
+        version
+    };
+
+    Some(final_version)
 }
