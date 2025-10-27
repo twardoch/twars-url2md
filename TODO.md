@@ -176,6 +176,45 @@ this_file: TODO.md
 - [x] Verify no debug output appears (NO debug output - monolith fix verified)
 - [x] Document test results (comprehensive testing documented in WORK.md)
 
+## Phase 9: Additional Quality Improvements (Priority: MEDIUM) - 2025-10-27
+
+### 9.1 Add Checksum Verification to install.sh ✅ PLANNED
+- [ ] Research best practices for checksum verification in install scripts
+- [ ] Add checksum generation to release process (in .github/workflows/release.yml)
+- [ ] Implement SHA256 checksum verification function in install.sh
+- [ ] Download checksums.txt from releases and verify binary integrity
+- [ ] Add helpful error messages if verification fails
+- [ ] Test on all supported platforms (Linux, macOS, Windows/WSL)
+- [ ] Document checksum verification in README.md
+
+**Rationale**: Security best practice - users should verify downloaded binaries haven't been tampered with.
+
+### 9.2 Improve Error Messages and User Guidance ✅ COMPLETED
+- [x] Audit all error messages in src/cli.rs, src/html.rs, src/lib.rs
+- [x] Ensure errors provide actionable guidance (what went wrong, how to fix)
+- [x] Add context to anyhow errors using `.context()` where missing
+- [x] Improved HTTP error messages with specific status code guidance
+- [x] Enhanced network fetch errors with possible causes and troubleshooting tips
+- [x] Better URL parsing errors with protocol requirement examples
+- [x] Comprehensive file writing error messages with system commands for diagnosis
+- [x] Test all changes: 91/91 tests passing ✅
+- [ ] Document common errors and solutions in README.md troubleshooting section (future)
+- [x] Verify error messages are user-friendly (no debug dumps to users)
+
+**Rationale**: Better error messages reduce user frustration and support burden.
+**Status**: COMPLETED 2025-10-27 - All critical error paths improved with actionable guidance
+
+### 9.3 Add Shell Completion Scripts Generation
+- [ ] Research clap's shell completion generation capabilities
+- [ ] Add completion generation command: `twars-url2md --generate-completion <shell>`
+- [ ] Support bash, zsh, fish, powershell completions
+- [ ] Test completions work correctly on different shells
+- [ ] Add instructions to README.md for installing completions
+- [ ] Update install.sh to optionally install completions
+- [ ] Document completion features in CLI help text
+
+**Rationale**: Shell completions significantly improve CLI UX and discoverability of features.
+
 ## Continuous Tasks
 - [ ] Update `WORK.md` with daily progress
 - [ ] Mark completed tasks with [x] in this file

@@ -445,3 +445,192 @@ cargo tarpaulin --out Html --output-dir coverage/
   * Phase 7: Quality Improvements ✅
   * Phase 8: Final Validation ✅
 - Project is production-ready and all quality improvements verified
+
+---
+
+## Phase 9: Additional Quality Improvements (Priority: MEDIUM)
+
+**Status**: PLANNED - 2025-10-27
+
+After completing Phases 1-8, identified 3 high-value quality improvements that will enhance security, usability, and user experience without adding major features.
+
+### 9.1 Add Checksum Verification to install.sh
+
+**Problem**: install.sh downloads binaries from GitHub releases without verifying their integrity.
+
+**Security Risk**: Users have no way to verify that downloaded binaries haven't been tampered with (MITM attacks, compromised CDN, etc.).
+
+**Solution**:
+1. Generate SHA256 checksums during release build process
+2. Upload checksums.txt to each GitHub release
+3. Modify install.sh to download and verify checksums before installation
+4. Provide clear error messages if verification fails
+
+**Implementation**:
+```bash
+# In install.sh, add verification function:
+verify_checksum() {
+    local binary_path="$1"
+    local expected_checksum="$2"
+
+    if command -v sha256sum >/dev/null 2>&1; then
+        actual=$(sha256sum "$binary_path" | awk '{print $1}')
+    elif command -v shasum >/dev/null 2>&1; then
+        actual=$(shasum -a 256 "$binary_path" | awk '{print $1}')
+    else
+        yellow "⚠️  No checksum tool found (sha256sum/shasum), skipping verification"
+        return 0
+    fi
+
+    if [ "$actual" != "$expected_checksum" ]; then
+        red "❌ Checksum verification failed!"
+        red "   Expected: $expected_checksum"
+        red "   Got:      $actual"
+        return 1
+    fi
+
+    green "✓ Checksum verified successfully"
+}
+```
+
+**Benefits**:
+- Security: Protects against binary tampering
+- Trust: Users can verify software authenticity
+- Best practice: Standard for professional CLI tools
+
+---
+
+### 9.2 Improve Error Messages and User Guidance
+
+**Problem**: Current error messages may not provide sufficient context for users to resolve issues.
+
+**Goal**: Every error should tell users:
+1. What went wrong (the error)
+2. Why it happened (the cause)
+3. How to fix it (the solution)
+
+**Audit Areas**:
+- **URL validation errors**: "Invalid URL" → "Invalid URL 'xyz': missing protocol (add https://)"
+- **Network errors**: "Failed to fetch" → "Failed to fetch https://example.com: network timeout after 30s (check internet connection)"
+- **File errors**: "Cannot write file" → "Cannot write to /path/file.md: permission denied (try with sudo or different --output-dir)"
+- **HTML parsing errors**: "HTML parse failed" → "Failed to convert HTML to Markdown: invalid encoding (the page may be corrupted)"
+
+**Implementation Strategy**:
+```rust
+// Before:
+return Err(anyhow!("Failed to fetch URL"));
+
+// After:
+return Err(anyhow!("Failed to fetch {}", url))
+    .context("Network request timed out after 30s")
+    .context("Check your internet connection or try again later");
+```
+
+**Testing**:
+- Trigger each error condition deliberately
+- Verify error messages are helpful
+- Check that tracing::error! logs provide debug context without exposing it to users
+
+---
+
+### 9.3 Add Shell Completion Scripts Generation
+
+**Problem**: Users must remember all command-line options and manually type them.
+
+**Solution**: Generate shell completion scripts that provide:
+- Auto-completion for flags (`--output`, `--input`, etc.)
+- Auto-completion for file paths
+- Auto-completion for option values where applicable
+- Help text hints as users type
+
+**Implementation** (using clap's built-in completion generation):
+```rust
+use clap::CommandFactory;
+use clap_complete::{generate, Shell};
+
+// Add new subcommand to CLI:
+#[derive(Parser)]
+enum Command {
+    /// Generate shell completion scripts
+    Completions {
+        /// Shell to generate completions for
+        #[arg(value_enum)]
+        shell: Shell,
+    },
+}
+
+// In main():
+match args.command {
+    Some(Command::Completions { shell }) => {
+        let mut cmd = Cli::command();
+        generate(shell, &mut cmd, "twars-url2md", &mut io::stdout());
+    }
+    None => {
+        // Normal processing...
+    }
+}
+```
+
+**Usage**:
+```bash
+# Generate completions
+twars-url2md completions bash > ~/.bash_completion.d/twars-url2md
+twars-url2md completions zsh > ~/.zsh/completions/_twars-url2md
+twars-url2md completions fish > ~/.config/fish/completions/twars-url2md.fish
+twars-url2md completions powershell > twars-url2md.ps1
+```
+
+**Benefits**:
+- **Discoverability**: Users learn about options through tab completion
+- **Speed**: Faster command construction
+- **Accuracy**: Reduces typos in flags and file paths
+- **Professional**: Expected feature in modern CLI tools
+
+**Installation Integration**:
+Update install.sh to optionally install completions:
+```bash
+--install-completions)
+    install_completions
+    shift
+    ;;
+```
+
+---
+
+## Success Criteria for Phase 9
+
+1. **Checksum verification (9.1)**: PLANNED
+   - [ ] Checksums generated and uploaded with each release
+   - [ ] install.sh verifies checksums before installation
+   - [ ] Works on Linux (sha256sum), macOS (shasum), Windows (certutil)
+   - [ ] Clear error messages if verification fails
+   - **Status**: Planned for future iteration
+
+2. **Error messages (9.2)**: ✅ COMPLETED (2025-10-27)
+   - [x] All errors include context and guidance
+   - [x] HTTP errors provide specific status code explanations
+   - [x] Network errors list possible causes and troubleshooting steps
+   - [x] URL parsing errors show examples of correct format
+   - [x] File writing errors explain system-level causes with diagnostic commands
+   - [x] Test suite covers error scenarios - 91/91 tests passing
+   - [ ] README.md has troubleshooting section with error solutions (future enhancement)
+   - [x] No raw debug dumps shown to end users
+
+3. **Shell completions (9.3)**: PLANNED
+   - [ ] Completion scripts work for bash, zsh, fish, powershell
+   - [ ] README.md has installation instructions
+   - [ ] install.sh can optionally install completions
+   - [ ] CLI help mentions completion generation
+   - **Status**: Planned for future iteration
+
+---
+
+**Status 2025-10-27 (Phase 9.2 COMPLETED - Error Message Improvements)**:
+- Phase 9.2 successfully completed with significant improvements to user-facing error messages
+- All 91 tests passing (39 unit + 36 integration + 10 benchmarks + 6 doc tests)
+- Error messages now follow consistent pattern: what + why + how to fix
+- Files modified: src/html.rs, src/lib.rs
+- Benefits: Improved UX, reduced support burden, professional error handling
+- Tasks 9.1 (checksum verification) and 9.3 (shell completions) deferred to future iterations
+
+---

@@ -79,7 +79,8 @@ async fn process_url_internal(
                         tracing::debug!("Creating parent directory: {}", parent.display());
                         if let Err(e) = tokio::fs::create_dir_all(parent).await {
                             tracing::warn!(
-                                "Failed to create directory {}: {}",
+                                "Failed to create directory {}: {}\n\
+                                 Check permissions or try a different --output-dir",
                                 parent.display(),
                                 e
                             );
@@ -88,7 +89,14 @@ async fn process_url_internal(
                 }
                 tokio::fs::write(&path, &markdown_content)
                     .await
-                    .with_context(|| format!("Failed to write to file: {}", path.display()))?;
+                    .with_context(|| {
+                        format!(
+                            "Failed to write to file: {}\n\
+                         Possible causes: permission denied, disk full, or read-only filesystem\n\
+                         Try: Use --output-dir to specify a different location",
+                            path.display()
+                        )
+                    })?;
                 tracing::info!("Created: {}", path.display());
             } else {
                 tracing::debug!("Printing Markdown to stdout for URL: {}", url);
@@ -124,6 +132,7 @@ pub async fn process_url_with_content(url: &str, output_path: Option<PathBuf>) -
 /// Fallback HTML fetch using libcurl for robust cross-platform support.
 async fn fetch_html_with_curl(url: &str) -> Result<String> {
     let url_owned = url.to_string();
+    let url_for_error = url_owned.clone(); // Clone for error message
     tokio::task::spawn_blocking(move || {
         let mut easy = Easy::new();
         easy.url(&url_owned)?;
@@ -163,18 +172,46 @@ async fn fetch_html_with_curl(url: &str) -> Result<String> {
 
         let code = easy.response_code()?;
         if code >= 400 {
-            return Err(anyhow::anyhow!("HTTP error status {}", code));
+            return Err(anyhow::anyhow!(
+                "HTTP error {} when fetching {}: {}",
+                code,
+                url_owned,
+                match code {
+                    400 => "Bad Request - the server couldn't understand the request",
+                    401 => "Unauthorized - authentication required",
+                    403 => "Forbidden - access denied to this resource",
+                    404 => "Not Found - the page doesn't exist",
+                    429 => "Too Many Requests - rate limit exceeded, try again later",
+                    500 => "Internal Server Error - the server encountered an error",
+                    503 => "Service Unavailable - server temporarily unavailable",
+                    _ => "see https://developer.mozilla.org/en-US/docs/Web/HTTP/Status for details",
+                }
+            ));
         }
 
         let ct = easy.content_type()?.unwrap_or("text/html");
         if !ct.contains("text/html") {
-            return Err(anyhow::anyhow!("Not an HTML page: {}", ct));
+            return Err(anyhow::anyhow!(
+                "Cannot convert {}: server returned '{}' (expected HTML content)\n\
+                 Tip: This tool only works with HTML pages. Use curl or wget for other content types.",
+                url_owned,
+                ct
+            ));
         }
 
         Ok(String::from_utf8_lossy(&data).into_owned())
     })
     .await
-    .context("curl blocking task failed")?
+    .with_context(|| format!(
+        "Failed to fetch {}\n\
+         Possible causes:\n\
+         - Network connection issues\n\
+         - DNS resolution failure\n\
+         - Server timeout\n\
+         - SSL/TLS certificate error\n\
+         Try: Check your internet connection or use --verbose for more details",
+        url_for_error
+    ))?
 }
 
 // Generic retry wrapper for async operations

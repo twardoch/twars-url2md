@@ -284,11 +284,18 @@ pub async fn process_urls(
                     result
                 }
                 Err(e) => {
+                    let helpful_error = anyhow::anyhow!(
+                        "Invalid URL '{}': {}\n\
+                         Tip: URLs must include a protocol (http:// or https://)\n\
+                         Example: https://example.com/page",
+                        url_str,
+                        e
+                    );
                     tracing::error!("Failed to parse URL {}: {}", url_str, e);
                     if let Some(pb_instance) = &*pb_clone {
                         pb_instance.inc(1);
                     }
-                    Err((url_str, e.into()))
+                    Err((url_str, helpful_error))
                 }
             }
         }
@@ -314,7 +321,9 @@ pub async fn process_urls(
                 );
                 if let Err(e) = tokio::fs::create_dir_all(parent).await {
                     tracing::error!(
-                        "Failed to create directory {} for packed file: {}",
+                        "Failed to create directory {} for packed file: {}\n\
+                         Possible causes: insufficient permissions, read-only filesystem, or disk full\n\
+                         Try: Check directory permissions or specify a different output location with --pack",
                         parent.display(),
                         e
                     );
@@ -327,9 +336,19 @@ pub async fn process_urls(
             Ok(file) => file,
             Err(e) => {
                 tracing::error!(
-                    "Fatal: Error creating packed file {}: {}",
+                    "Fatal: Cannot create packed file {}: {}\n\
+                     Possible causes:\n\
+                     - Permission denied: You don't have write access to this location\n\
+                     - Disk full: No space left on device\n\
+                     - Read-only filesystem: Target location is not writable\n\
+                     - Path too long: File path exceeds system limits\n\
+                     Try:\n\
+                     - Use a different output location: --pack ~/output.md\n\
+                     - Check available disk space: df -h\n\
+                     - Verify directory permissions: ls -la $(dirname {})",
                     path.display(),
-                    e
+                    e,
+                    path.display()
                 );
                 // Collect all errors from processing and return them
                 return Ok(results.into_iter().filter_map(|r| r.err()).collect());
