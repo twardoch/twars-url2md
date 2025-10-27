@@ -1,6 +1,6 @@
 [package]
 name = "twars-url2md"
-version = "1.4.3"
+version = "1.4.7"
 edition = "2021"
 authors = ["Adam Twardoch <adam+github@twardoch.com>"]
 description = "A powerful CLI tool that fetches web pages and converts them to clean Markdown format using curl for fetching and htmd for HTML-to-Markdown conversion"
