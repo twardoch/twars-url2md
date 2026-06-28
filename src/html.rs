@@ -1,3 +1,30 @@
+//! HTML fetching and Markdown conversion pipeline.
+//!
+//! This module owns the full URL → Markdown lifecycle:
+//!
+//! 1. **Skip** non-HTML resources (images, videos, PDFs) by extension.
+//! 2. **Fetch** HTML via libcurl (`fetch_html_with_curl`), presenting as a
+//!    real browser to pass CDN bot-detection checks.
+//! 3. **Convert** the raw HTML to Markdown via the `markdown` module.
+//! 4. **Write** the result to a file path or print to stdout.
+//! 5. **Retry** transiently-failing requests with exponential backoff.
+//!
+//! ## CDN compatibility
+//!
+//! Many CDNs (Cloudflare, Akamai, Fastly, Adobe Experience Manager …) inspect
+//! HTTP headers to distinguish browsers from scrapers.  `fetch_html_with_curl`
+//! sends a full set of Chromium-style request headers:
+//!
+//! - **`User-Agent`**: a current Chromium/Chrome string
+//! - **`Accept`**: the exact MIME list Chrome sends for navigation requests
+//! - **`Sec-Ch-Ua` / `Sec-Fetch-*`**: Client Hints that CDNs use as signals
+//! - **`Upgrade-Insecure-Requests: 1`**: marks the request as a browser navigation
+//! - **HTTP version**: left for libcurl to negotiate (prefers HTTP/2); forcing
+//!   HTTP/1.1 is a known fingerprint that some CDNs block
+//!
+//! If a CDN still blocks the request, the retry logic retries with exponential
+//! backoff (1 s, 2 s, 4 s …).
+
 use anyhow::{Context, Result};
 use curl::easy::Easy;
 use std::path::PathBuf;
@@ -136,26 +163,49 @@ async fn fetch_html_with_curl(url: &str) -> Result<String> {
     tokio::task::spawn_blocking(move || {
         let mut easy = Easy::new();
         easy.url(&url_owned)?;
+        // Follow HTTP 3xx redirects automatically (required for many CDN origins).
         easy.follow_location(true)?;
+        // Chromium-style User-Agent — many CDNs block requests without a recognised UA.
         easy.useragent(crate::USER_AGENT_STRING)?;
+        // Accept compressed responses; libcurl decompresses transparently.
         easy.accept_encoding("gzip,deflate,br")?;
         easy.connect_timeout(Duration::from_secs(20))?;
         easy.timeout(Duration::from_secs(60))?;
-        // Allow curl to auto-negotiate HTTP version (HTTP/2 preferred)
-        // Forcing HTTP/1.1 causes issues with some CDNs like Adobe's
+        // Leave HTTP version negotiation to libcurl (HTTP/2 preferred over HTTP/1.1).
+        // Forcing HTTP/1.1 is a detectable scraper fingerprint rejected by CDNs such
+        // as Adobe Experience Manager and some Cloudflare configurations.
 
-        // Add browser-like headers to avoid bot detection
+        // -----------------------------------------------------------------------
+        // CDN bot-detection bypass: send the full Chromium navigation header set.
+        //
+        // Modern CDNs (Cloudflare, Akamai, Fastly …) inspect multiple signals:
+        //
+        //  • Accept           — must list HTML + image MIME types in browser order
+        //  • Accept-Language  — scrapers often omit this header
+        //  • Cache-Control / Pragma — sent by Chrome on first navigation
+        //  • Sec-Ch-Ua*       — Client Hints revealing browser brand/version/platform
+        //  • Sec-Fetch-*      — Fetch metadata required for "navigation" classification
+        //  • Upgrade-Insecure-Requests — marks the request as a top-level browser load
+        //
+        // Missing or mismatched headers often result in 403 / CAPTCHA responses.
+        // -----------------------------------------------------------------------
         let mut headers = curl::easy::List::new();
         headers.append("Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")?;
         headers.append("Accept-Language: en-US,en;q=0.9")?;
         headers.append("Cache-Control: no-cache")?;
         headers.append("Pragma: no-cache")?;
+        // Sec-Ch-Ua encodes the browser brand list; CDNs use it to distinguish Chrome
+        // from headless environments (which have an empty or "HeadlessChrome" brand).
         headers.append("Sec-Ch-Ua: \"Not_A Brand\";v=\"8\", \"Chromium\";v=\"120\", \"Google Chrome\";v=\"120\"")?;
         headers.append("Sec-Ch-Ua-Mobile: ?0")?;
         headers.append("Sec-Ch-Ua-Platform: \"macOS\"")?;
+        // Sec-Fetch-Dest: document → full-page navigation (not XHR / sub-resource).
         headers.append("Sec-Fetch-Dest: document")?;
+        // Sec-Fetch-Mode: navigate → top-level browser navigation.
         headers.append("Sec-Fetch-Mode: navigate")?;
+        // Sec-Fetch-Site: none → user typed or bookmarked URL (no Referer).
         headers.append("Sec-Fetch-Site: none")?;
+        // Sec-Fetch-User: ?1 → navigation triggered by a real user gesture.
         headers.append("Sec-Fetch-User: ?1")?;
         headers.append("Upgrade-Insecure-Requests: 1")?;
         easy.http_headers(headers)?;

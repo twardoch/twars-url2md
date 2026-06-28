@@ -1,19 +1,19 @@
 //! # twars-url2md
 //!
-//! A high-performance Rust library and CLI tool for converting web pages to clean Markdown files.
+//! A fast Rust library and CLI tool that turns web pages into clean Markdown.
 //!
 //! ## Overview
 //!
-//! `twars-url2md` fetches web pages using libcurl and converts them to readable Markdown format
-//! using htmd. It supports concurrent processing, intelligent error recovery, and flexible output options.
+//! `twars-url2md` grabs web pages using libcurl and turns them into readable Markdown
+//! using htmd. It handles multiple URLs at once, retries automatically if a request fails, and can output to a directory or a single packed file.
 //!
 //! ## Features
 //!
-//! - **URL Extraction**: Finds URLs in plain text, HTML, and Markdown
-//! - **Concurrent Processing**: Adaptive parallelism based on CPU cores
-//! - **Error Recovery**: Automatic retries with exponential backoff
-//! - **Flexible Output**: Directory structure or single file output
-//! - **Local File Support**: Process local HTML files alongside remote URLs
+//! - **URL Extraction**: Finds URLs in plain text, HTML, and Markdown files
+//! - **Concurrent Processing**: Runs tasks in parallel based on your CPU cores
+//! - **Error Recovery**: Automatically retries failed downloads with exponential backoff
+//! - **Flexible Output**: Saves files in a folder structure or packs them into one file
+//! - **Local File Support**: Converts local HTML files just like web URLs
 //!
 //! ## Library Usage
 //!
@@ -48,20 +48,21 @@
 //! ## CLI Usage
 //!
 //! ```bash
-//! # Process URLs from a file
+//! # Process URLs from a file and save to output directory
 //! twars-url2md -i urls.txt -o ./output
 //!
-//! # Process from stdin
+//! # Process URLs from stdin
 //! echo "https://example.com" | twars-url2md --stdin -o ./output
 //!
-//! # Create packed output
+//! # Combine everything into one big Markdown file
 //! twars-url2md -i urls.txt --pack combined.md
 //! ```
 
 use crate::url::Url;
 use anyhow::Result;
 use futures::stream::{self, StreamExt};
-use std::path::PathBuf;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
 
@@ -90,10 +91,96 @@ pub fn version() -> String {
 pub(crate) const USER_AGENT_STRING: &str =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-/// Configuration for URL processing.
+// ---------------------------------------------------------------------------
+// Crash-safe JSONL progress tracking
+// ---------------------------------------------------------------------------
+
+/// Name of the append-only progress file written inside each output directory.
 ///
-/// This struct contains all the configuration options needed to process
-/// a batch of URLs, including output paths, retry settings, and verbosity.
+/// One JSON object per line: `{"url":"…","status":"done"}`.
+/// The file is stored **inside the output directory**, so changing `--output`
+/// automatically starts a fresh run — the old file is simply not found.
+pub(crate) const PROGRESS_FILE: &str = ".url2md_progress.jsonl";
+
+/// Load the set of already-completed URLs from the progress file in `output_dir`.
+///
+/// Returns an empty [`HashSet`] when the file is absent or unreadable so that
+/// the first run always starts from scratch without requiring pre-existing state.
+/// Lines that cannot be parsed (e.g. truncated by a crash) are silently skipped.
+fn load_progress(output_dir: &Path) -> HashSet<String> {
+    let path = output_dir.join(PROGRESS_FILE);
+    let mut done = HashSet::new();
+    if let Ok(content) = std::fs::read_to_string(&path) {
+        for line in content.lines() {
+            if let Some(url) = parse_progress_url(line) {
+                done.insert(url.to_string());
+            }
+        }
+    }
+    done
+}
+
+/// Append a single `{"url":"…","status":"done"}` record to the progress file.
+///
+/// Opens with `append` mode so concurrent task writes never truncate each
+/// other's data.  Failures are logged as warnings and swallowed — progress
+/// tracking is best-effort and must never abort a successful conversion.
+async fn append_progress(output_dir: &Path, url: &str) {
+    use tokio::io::AsyncWriteExt as _;
+    let path = output_dir.join(PROGRESS_FILE);
+    // Minimal JSON escaping: backslash and double-quote are rare in URLs but valid.
+    let escaped = url.replace('\\', "\\\\").replace('"', "\\\"");
+    let line = format!("{{\"url\":\"{escaped}\",\"status\":\"done\"}}\n");
+    match tokio::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .await
+    {
+        Ok(mut f) => {
+            if let Err(e) = f.write_all(line.as_bytes()).await {
+                tracing::warn!("Progress write failed for {}: {}", url, e);
+            }
+        }
+        Err(e) => tracing::warn!("Cannot open progress file {:?}: {}", path, e),
+    }
+}
+
+/// Extract the URL field from one JSONL progress line.
+///
+/// Handles the minimal format `{"url":"…","status":"done"}` produced by
+/// [`append_progress`].  Returns `None` if the line is malformed so that a
+/// truncated write during a crash never blocks future runs.
+fn parse_progress_url(line: &str) -> Option<&str> {
+    const MARKER: &str = "\"url\":\"";
+    let start = line.find(MARKER)? + MARKER.len();
+    let rest = &line[start..];
+    // Walk characters to find the closing quote, honouring backslash escapes.
+    let mut end = None;
+    let mut chars = rest.char_indices();
+    while let Some((i, ch)) = chars.next() {
+        if ch == '\\' {
+            chars.next(); // skip the escaped character
+            continue;
+        }
+        if ch == '"' {
+            end = Some(i);
+            break;
+        }
+    }
+    let end = end?;
+    let url = &rest[..end];
+    if url.is_empty() {
+        None
+    } else {
+        Some(url)
+    }
+}
+
+/// Settings for turning URLs into Markdown.
+///
+/// Holds everything needed to run a batch of URLs:
+/// where to save files, how many times to retry failures, and whether to print verbose logs.
 #[derive(Debug, Clone)]
 pub struct Config {
     /// Enable verbose logging output
@@ -110,11 +197,11 @@ pub struct Config {
     pub pack_file: Option<PathBuf>,
 }
 
-/// Process a list of URLs with the given configuration.
+/// Process a list of URLs and convert them to Markdown.
 ///
-/// This is the main entry point for batch URL processing. It handles concurrent
-/// downloads, error recovery, and output generation according to the provided
-/// configuration.
+/// The core engine. It grabs pages concurrently,
+/// recovers from errors automatically, and writes the results based on your `Config`.
+///
 ///
 /// # Arguments
 ///
@@ -123,8 +210,8 @@ pub struct Config {
 ///
 /// # Returns
 ///
-/// A `Result` containing a vector of errors (URL and error pairs) for URLs that
-/// failed to process. An empty vector indicates all URLs were processed successfully.
+/// Returns a list of URLs that failed along with their error messages.
+/// If the list is empty, everything worked.
 ///
 /// # Examples
 ///
@@ -165,6 +252,45 @@ pub async fn process_urls(
 ) -> Result<Vec<(String, anyhow::Error)>> {
     use indicatif::{ProgressBar, ProgressStyle};
     use tokio::io::AsyncWriteExt;
+
+    // ------------------------------------------------------------------
+    // Crash-safe resumability: track completed URLs in a per-output-dir
+    // JSONL file.  Storing the file *inside* the output directory means
+    // switching `--output` automatically starts a fresh run — the old
+    // progress file is simply not found in the new directory.
+    // ------------------------------------------------------------------
+    let track_progress = config.has_output && !config.single_file && config.pack_file.is_none();
+    let progress_dir: Option<Arc<PathBuf>> = if track_progress {
+        let dir = config.output_base.clone();
+        // Create the output dir early so the progress file has a place to live.
+        if let Err(e) = std::fs::create_dir_all(&dir) {
+            tracing::warn!("Cannot create output dir for progress tracking: {}", e);
+        }
+        Some(Arc::new(dir))
+    } else {
+        None
+    };
+
+    // Load completed URLs from a previous run and skip them.
+    let already_done: HashSet<String> = progress_dir
+        .as_deref()
+        .map(|p| load_progress(p.as_path()))
+        .unwrap_or_default();
+    let skip_count = urls
+        .iter()
+        .filter(|u| already_done.contains(u.as_str()))
+        .count();
+    if skip_count > 0 {
+        tracing::info!(
+            "Resuming: skipping {} already-completed URL(s) (from {:?}).",
+            skip_count,
+            progress_dir.as_deref().map(|p| p.join(PROGRESS_FILE))
+        );
+    }
+    let urls: Vec<String> = urls
+        .into_iter()
+        .filter(|u| !already_done.contains(u.as_str()))
+        .collect();
 
     let pb = if urls.len() > 1 {
         let pb = ProgressBar::new(urls.len() as u64);
@@ -214,6 +340,7 @@ pub async fn process_urls(
         let pb_clone = Arc::clone(&pb);
         let config_clone = config.clone();
         let packed_content_clone = Arc::clone(&packed_content);
+        let progress_dir_clone = progress_dir.clone();
         async move {
             tracing::info!("Processing URL: {}", url_str);
             match Url::parse(&url_str) {
@@ -277,6 +404,14 @@ pub async fn process_urls(
                         )
                         .await
                     };
+
+                    // Record successful completion in the JSONL progress file so
+                    // the next run can skip this URL even if the process crashes later.
+                    if result.is_ok() {
+                        if let Some(ref pdir) = progress_dir_clone {
+                            append_progress(pdir.as_path(), &url_str).await;
+                        }
+                    }
 
                     if let Some(pb_instance) = &*pb_clone {
                         pb_instance.inc(1);
@@ -401,4 +536,206 @@ pub async fn process_urls(
     }
 
     Ok(errors)
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    // --- parse_progress_url ---
+
+    #[test]
+    fn test_parse_progress_url_valid() {
+        let line = r#"{"url":"https://example.com","status":"done"}"#;
+        assert_eq!(
+            parse_progress_url(line),
+            Some("https://example.com"),
+            "should extract the URL field"
+        );
+    }
+
+    #[test]
+    fn test_parse_progress_url_with_path_and_query() {
+        let line = r#"{"url":"https://example.com/path?q=1#frag","status":"done"}"#;
+        assert_eq!(
+            parse_progress_url(line),
+            Some("https://example.com/path?q=1#frag"),
+        );
+    }
+
+    #[test]
+    fn test_parse_progress_url_invalid_lines() {
+        assert_eq!(
+            parse_progress_url("not json"),
+            None,
+            "plain text must yield None"
+        );
+        assert_eq!(parse_progress_url(""), None, "empty line must yield None");
+        assert_eq!(
+            parse_progress_url(r#"{"status":"done"}"#),
+            None,
+            "missing url field must yield None"
+        );
+        assert_eq!(
+            parse_progress_url(r#"{"url":"","status":"done"}"#),
+            None,
+            "empty url must yield None"
+        );
+    }
+
+    // --- load_progress ---
+
+    #[test]
+    fn test_load_progress_nonexistent_dir_returns_empty() {
+        // A path that will never exist — must not panic and must return empty.
+        let dir = std::path::Path::new("/tmp/__twars_url2md_nonexistent_testdir_xyzzy__");
+        let done = load_progress(dir);
+        assert!(
+            done.is_empty(),
+            "missing progress file should yield empty set"
+        );
+    }
+
+    #[test]
+    fn test_load_progress_reads_completed_urls() {
+        let dir = TempDir::new().unwrap();
+        let progress_file = dir.path().join(PROGRESS_FILE);
+        std::fs::write(
+            &progress_file,
+            "{\"url\":\"https://example.com\",\"status\":\"done\"}\n\
+             {\"url\":\"https://rust-lang.org\",\"status\":\"done\"}\n",
+        )
+        .unwrap();
+
+        let done = load_progress(dir.path());
+        assert!(
+            done.contains("https://example.com"),
+            "first URL should be loaded"
+        );
+        assert!(
+            done.contains("https://rust-lang.org"),
+            "second URL should be loaded"
+        );
+        assert_eq!(done.len(), 2, "exactly two URLs should be loaded");
+    }
+
+    #[test]
+    fn test_load_progress_skips_malformed_lines() {
+        let dir = TempDir::new().unwrap();
+        let progress_file = dir.path().join(PROGRESS_FILE);
+        // Truncated line (simulates a crash mid-write) followed by a good line.
+        std::fs::write(
+            &progress_file,
+            "{\"url\":\"https://truncated.com\",\"sta\n\
+             {\"url\":\"https://good.com\",\"status\":\"done\"}\n",
+        )
+        .unwrap();
+
+        let done = load_progress(dir.path());
+        // The truncated line lacks a closing quote for the URL — it must be skipped.
+        assert!(
+            done.contains("https://good.com"),
+            "valid line should be loaded"
+        );
+    }
+
+    // --- end-to-end progress file behaviour (requires tokio) ---
+
+    #[tokio::test]
+    async fn test_progress_file_created_after_processing() {
+        let html_dir = TempDir::new().unwrap();
+        let html_file = html_dir.path().join("prog.html");
+        std::fs::write(
+            &html_file,
+            "<html><body><h1>Progress Test</h1></body></html>",
+        )
+        .unwrap();
+        let file_url = format!("file://{}", html_file.display());
+
+        let output_dir = TempDir::new().unwrap();
+        let config = Config {
+            verbose: false,
+            max_retries: 0,
+            output_base: output_dir.path().to_path_buf(),
+            single_file: false,
+            has_output: true,
+            pack_file: None,
+        };
+
+        let errors = process_urls(vec![file_url.clone()], config).await.unwrap();
+        assert!(errors.is_empty(), "local-file processing should succeed");
+
+        let progress_path = output_dir.path().join(PROGRESS_FILE);
+        assert!(
+            progress_path.exists(),
+            "progress file should be created in output dir"
+        );
+
+        let content = std::fs::read_to_string(&progress_path).unwrap();
+        assert!(
+            content.contains(&file_url),
+            "progress file should record the processed URL"
+        );
+    }
+
+    /// Verifies the crash-safe restart contract: when `--output` points to a
+    /// **different** directory the old progress file is not found, so processing
+    /// starts fresh and creates an independent progress file in the new location.
+    #[tokio::test]
+    async fn test_progress_file_restarts_on_output_dir_change() {
+        let html_dir = TempDir::new().unwrap();
+        let html_file = html_dir.path().join("resume.html");
+        std::fs::write(&html_file, "<html><body><h1>Resume Test</h1></body></html>").unwrap();
+        let file_url = format!("file://{}", html_file.display());
+
+        // First run — output dir1.
+        let dir1 = TempDir::new().unwrap();
+        let config1 = Config {
+            verbose: false,
+            max_retries: 0,
+            output_base: dir1.path().to_path_buf(),
+            single_file: false,
+            has_output: true,
+            pack_file: None,
+        };
+        let errors1 = process_urls(vec![file_url.clone()], config1).await.unwrap();
+        assert!(errors1.is_empty(), "first run should succeed");
+
+        let progress1 = dir1.path().join(PROGRESS_FILE);
+        assert!(progress1.exists(), "progress file should exist in dir1");
+        let lines_in_dir1 = std::fs::read_to_string(&progress1).unwrap().lines().count();
+        assert_eq!(lines_in_dir1, 1, "dir1 progress should have one entry");
+
+        // Second run — different output dir2: must start fresh.
+        let dir2 = TempDir::new().unwrap();
+        let config2 = Config {
+            verbose: false,
+            max_retries: 0,
+            output_base: dir2.path().to_path_buf(),
+            single_file: false,
+            has_output: true,
+            pack_file: None,
+        };
+        let errors2 = process_urls(vec![file_url.clone()], config2).await.unwrap();
+        assert!(errors2.is_empty(), "second run (new dir) should succeed");
+
+        // dir2 must have its own fresh progress file.
+        let progress2 = dir2.path().join(PROGRESS_FILE);
+        assert!(
+            progress2.exists(),
+            "progress file should be created in dir2"
+        );
+
+        // dir1 progress must be unchanged — dir2 run must not touch it.
+        let lines_in_dir1_after = std::fs::read_to_string(&progress1).unwrap().lines().count();
+        assert_eq!(
+            lines_in_dir1_after, lines_in_dir1,
+            "dir1 progress file must be unchanged after dir2 run"
+        );
+    }
 }

@@ -11,6 +11,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Wave 1 modernisation (2026-06-28)
+
+- **Crash-safe JSONL progress tracking** (`src/lib.rs`): `process_urls` now writes
+  `.url2md_progress.jsonl` inside the output directory after each successful URL.
+  On the next run the file is read and completed URLs are skipped, enabling
+  crash-safe resumption of large batches.  Changing `--output` automatically starts
+  a fresh run because the progress file lives inside the output directory.
+  New public constant: `PROGRESS_FILE`.
+- **`deny.toml`**: added `cargo-deny` configuration for licence policy (MIT,
+  Apache-2.0, BSD-2-Clause, ISC, …) and RustSec advisory checks.  Run
+  `cargo deny check` to audit the dependency graph.
+- **`src_docs/md/STYLE_GUIDE.md`**: new developer style guide covering code
+  conventions, test naming, commit messages, dependency management, and release
+  workflow.
+- **`src_docs/md/architecture.md`**: rewrote with corrected Mermaid diagram
+  (removed stale Monolith node; the actual pipeline is libcurl → htmd), added
+  CDN-compatibility header table, performance benchmark reference table, and
+  expanded testing-architecture section.
+- **8 new tests** in `src/lib.rs` covering `parse_progress_url`,
+  `load_progress`, progress file creation, and the crash-restart contract when
+  the output directory changes.
+
+### Changed
+
+- **`Cargo.toml`**: bumped `tokio` minimum version floor from `"1.36"` to
+  `"1.38"` (resolved version in `Cargo.lock` is already 1.48.x; this makes the
+  declared minimum reflect the features actually used).
+- **`src/html.rs`**: added comprehensive `//!` module-level doc explaining the
+  full URL → Markdown pipeline; expanded inline comments on every CDN-bypass
+  header explaining its role in avoiding bot-detection (`Sec-Ch-Ua`, `Sec-Fetch-*`,
+  HTTP version negotiation, etc.).
+- **`src_docs/mkdocs.yml`**: added "Style Guide" entry to the Development
+  navigation section.
+
+### Fixed
+
+- Removed trailing whitespace from a doc comment in `src/lib.rs` that caused
+  `cargo fmt --check` to fail.
+
 ### Improved
 - **Phase 9.2: Significantly enhanced error messages** (2025-10-27)
   - HTTP errors now include specific guidance for each status code (400, 401, 403, 404, 429, 500, 503)

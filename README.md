@@ -81,7 +81,8 @@ This tool is valuable for:
     *   Resolves relative links if a base URL is provided.
     *   Supports processing local HTML files (`/path/to/file.html` or `file:///path/to/file.html`).
     *   Validates URLs and filters out non-HTTP(S) schemes.
-*   **CDN Compatibility**: Designed to work smoothly with modern CDNs (like Cloudflare, Fastly, Akamai), employing browser-like headers and HTTP/2 support to avoid bot detection and connection issues.
+*   **CDN Compatibility**: Designed to work smoothly with modern CDNs (like Cloudflare, Fastly, Akamai, Adobe Experience Manager), employing a full Chromium-style header set (`Sec-Ch-Ua`, `Sec-Fetch-*`, HTTP/2) to avoid bot-detection and connection issues.
+*   **Crash-safe resumption**: When writing to an output directory, `twars-url2md` appends each completed URL to `.url2md_progress.jsonl` in that directory.  Restarting after a crash skips already-completed URLs automatically.  Changing `--output` starts a fresh run — the old progress file is not found in the new directory.
 *   **Flexible Input/Output**:
     *   Accepts URLs via command-line arguments, input files, or standard input (stdin).
     *   Organizes output into a logical directory structure mirroring the source URLs or creates a single `.md` file.

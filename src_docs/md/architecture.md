@@ -1,35 +1,41 @@
+---
+this_file: src_docs/md/architecture.md
+---
+
 # Architecture
 
 Deep dive into the technical architecture, design decisions, and implementation details of `twars-url2md`.
 
 ## System Overview
 
-`twars-url2md` is a Rust application with a modular, async-first architecture. It prioritizes performance, reliability, and maintainability.
+`twars-url2md` is a Rust application with a modular, async-first architecture. It uses **libcurl** for fetching and **htmd** for HTML-to-Markdown conversion, with no browser dependency.
 
 <div class="arch-diagram">
 ```mermaid
 graph TB
     CLI[CLI Interface<br/>src/cli.rs] --> URLExt[URL Extractor<br/>src/url.rs]
     CLI --> Lib[Core Library<br/>src/lib.rs]
-    
+
     URLExt --> Valid[URL Validation<br/>& Normalization]
-    Valid --> HTTP[HTTP Client<br/>src/html.rs]
-    
-    HTTP --> Mono[Monolith<br/>HTML Cleaner]
-    Mono --> Conv[Markdown Converter<br/>src/markdown.rs]
-    
+    Valid --> HTTP[HTTP Client<br/>src/html.rs<br/>libcurl + CDN headers]
+
+    HTTP --> Conv[Markdown Converter<br/>src/markdown.rs<br/>htmd]
+
     Conv --> Output[Output Writer<br/>File System]
-    
+    Conv --> Pack[Pack File<br/>combined .md]
+
+    Lib --> Progress[JSONL Progress<br/>.url2md_progress.jsonl]
     Lib --> Async[Tokio Runtime<br/>Async Orchestration]
-    Async --> Conc[Concurrent Processing<br/>Buffer Unordered]
-    
+    Async --> Conc[Concurrent Processing<br/>buffer_unordered]
+
     Error[Error Handler<br/>anyhow + tracing] --> All[All Components]
-    
+
     style CLI fill:#e1f5fe
     style HTTP fill:#f3e5f5
-    style Mono fill:#e8f5e8
     style Conv fill:#fff3e0
     style Output fill:#fce4ec
+    style Pack fill:#fce4ec
+    style Progress fill:#e8f5e9
 ```
 </div>
 
@@ -37,420 +43,198 @@ graph TB
 
 ### 1. CLI Interface (`src/cli.rs`)
 
-Handles command-line argument parsing and user interaction.
+Handles argument parsing and user interaction via `clap` derive macros.
 
-**Key Responsibilities:**
-- Parse arguments with `clap` derive macros
-- Validate input and handle errors
-- Set up configuration and detect environment
-- Provide clear error messages
+**Key responsibilities:**
 
-**Design Patterns:**
+- Parse `--input`, `--output`, `--pack`, `--stdin`, `--verbose`, `--base-url`
+- Validate mutual-exclusion rules (e.g. `--stdin` vs `--input`)
+- Build the `Config` struct passed to `process_urls`
+
 ```rust
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-pub struct Args {
-    #[arg(help = "URLs to process")]
-    pub urls: Vec<String>,
-    
-    #[arg(short, long, help = "Input file containing URLs")]
-    pub input: Option<PathBuf>,
-    
-    #[arg(short, long, help = "Output directory or file")]
-    pub output: Option<PathBuf>,
-    
-    // ... additional arguments
+#[derive(Parser)]
+#[command(name = "twars-url2md", version, about)]
+pub struct Cli {
+    #[arg(short, long)] input: Option<PathBuf>,
+    #[arg(short, long)] output: Option<PathBuf>,
+    #[arg(long)]        stdin: bool,
+    #[arg(long)]        base_url: Option<String>,
+    #[arg(short = 'p', long)] pack: Option<PathBuf>,
+    #[arg(short, long)] verbose: bool,
 }
 ```
 
 ### 2. URL Processing (`src/url.rs`)
 
-Engine for extracting, validating, and normalizing URLs.
+Extracts, validates, and normalises URLs from arbitrary text input.
 
-**Architecture Features:**
-- Extract URLs from text using `linkify`
-- Resolve relative URLs against base URL
-- Validate and remove duplicate URLs
-- Generate output paths from URL structure
+**Processing pipeline:**
 
-**Processing Pipeline:**
+1. Line-by-line scan — bare file paths (`/path/to/file.html`) converted to `file://` URLs
+2. HTML-like lines parsed with `html5ever` to pull `href`/`src` attributes
+3. Plain-text lines scanned with `linkify` for embedded URLs
+4. Relative URLs resolved against `--base-url` if provided
+5. Sort + `dedup` to produce a unique, deterministic list
+
 ```rust
 pub fn extract_urls_from_text(text: &str, base_url: Option<&str>) -> Vec<String> {
-    // 1. Extract URLs using linkify
-    let mut urls = extract_raw_urls(text);
-    
-    // 2. Extract from HTML/Markdown if present
-    urls.extend(extract_from_html(text));
-    urls.extend(extract_from_markdown(text));
-    
-    // 3. Resolve relative URLs
-    if let Some(base) = base_url {
-        urls = resolve_relative_urls(urls, base);
-    }
-    
-    // 4. Validate and deduplicate
-    validate_and_deduplicate(urls)
+    // … line scanning, HTML parsing, LinkFinder, resolution, dedup
 }
 ```
 
 ### 3. HTTP Client (`src/html.rs`)
 
-HTTP client built on `curl` for compatibility.
+Fetches HTML via `libcurl` (the `curl` crate) running in a `spawn_blocking` thread to keep the Tokio event loop free.
 
-**CDN Compatibility Features:**
-- Browser-like User-Agent to avoid bot detection
-- HTTP/2 auto-negotiation
-- Headers that mimic real browsers
-- Connection pooling for efficiency
+**Why libcurl instead of `reqwest`?**  
+libcurl ships as a system library on all major platforms and handles HTTP/2, TLS, proxy auth, and CDN quirks without an extra async runtime dependency.
 
-**Request Configuration:**
+### 4. Markdown Conversion (`src/markdown.rs`)
+
+A thin wrapper around `htmd::convert`:
+
 ```rust
-const USER_AGENT_STRING: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) \
-    AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-
-fn configure_request(easy: &mut Easy) -> Result<()> {
-    easy.useragent(USER_AGENT_STRING)?;
-    easy.http_version(HttpVersion::V2)?;
-    easy.follow_location(true)?;
-    easy.max_redirections(10)?;
-    easy.timeout(Duration::from_secs(60))?;
-    easy.connect_timeout(Duration::from_secs(20))?;
-    
-    // Browser-like headers
-    let headers = vec![
-        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language: en-US,en;q=0.5",
-        "Accept-Encoding: gzip, deflate",
-        "Sec-Fetch-Dest: document",
-        "Sec-Fetch-Mode: navigate",
-        "Sec-Fetch-Site: none",
-        "Upgrade-Insecure-Requests: 1",
-    ];
-    
-    easy.http_headers(headers)?;
-    Ok(())
+pub fn convert_html_to_markdown(html: &str) -> Result<String> {
+    htmd::convert(html).context("Failed to convert HTML to Markdown")
 }
 ```
 
-### 4. HTML Processing Pipeline
-
-Two-stage process for cleaning and converting HTML.
-
-#### Stage 1: Monolith Integration
-- Remove scripts, styles, ads
-- Process images and links
-- Catch Monolith panics to prevent crashes
-
-```rust
-pub async fn fetch_and_clean_html(url: &str) -> Result<String> {
-    // Fetch HTML content
-    let html_content = fetch_html_content(url).await?;
-    
-    // Clean with Monolith (with panic recovery)
-    let cleaned_html = std::panic::catch_unwind(|| {
-        monolith::html::clean(&html_content, &url, &monolith_options())
-    }).map_err(|_| anyhow!("HTML cleaning panicked"))?;
-    
-    Ok(cleaned_html)
-}
-```
-
-#### Stage 2: Markdown Conversion
-- Preserve heading hierarchy
-- Normalize links
-- Retain tables, lists, code blocks
+`htmd` preserves headings, lists, tables, code blocks, links, and images while discarding script and style content.
 
 ### 5. Async Processing Engine (`src/lib.rs`)
 
-Concurrent processing with Tokio.
+`process_urls` orchestrates the batch using `futures::stream::buffer_unordered`:
 
-**Concurrency Architecture:**
 ```rust
-pub async fn process_urls(urls: Vec<String>, config: Config) -> Result<Vec<(String, Error)>> {
-    let concurrency_limit = determine_optimal_concurrency();
-    
-    let results = futures::stream::iter(urls)
-        .map(|url| process_single_url(url, &config))
-        .buffer_unordered(concurrency_limit)
+pub async fn process_urls(urls: Vec<String>, config: Config)
+    -> Result<Vec<(String, anyhow::Error)>>
+{
+    let concurrency = thread::available_parallelism()
+        .map(|n| n.get() * 2)
+        .unwrap_or(10);
+
+    stream::iter(urls)
+        .map(|url| process_one(url, &config))
+        .buffer_unordered(concurrency)
         .collect::<Vec<_>>()
-        .await;
-    
-    handle_results(results)
-}
-
-fn determine_optimal_concurrency() -> usize {
-    let cpu_count = num_cpus::get();
-    std::cmp::min(cpu_count * 2, 16) // I/O bound, cap at 16
+        .await
 }
 ```
 
-**Error Aggregation:**
-- Failed URLs don't stop batch processing
-- Report all errors at completion
-- Retry with exponential backoff
+**Crash-safe progress tracking** — each successfully converted URL is appended to `.url2md_progress.jsonl` in the output directory.  On the next run, the file is read and those URLs are skipped.  Changing `--output` automatically starts a fresh run because the progress file lives inside the output directory.
 
-### 6. Output Management
+---
 
-Supports multiple output formats.
+## CDN Compatibility
 
-**Output Modes:**
-- **Directory Structure**: Mirror URL hierarchy
-- **Single File**: Concatenated content
-- **Packed Format**: URL-separated sections
+Many CDNs and anti-bot systems inspect HTTP headers to distinguish real browsers from scrapers.  `fetch_html_with_curl` sends a complete set of Chromium-style headers:
 
-```rust
-pub enum OutputMode {
-    Directory { base_path: PathBuf },
-    SingleFile { file_path: PathBuf },
-    Packed { file_path: PathBuf },
-    Combined { dir_path: PathBuf, pack_path: PathBuf },
-}
+| Header | Value / purpose |
+|--------|----------------|
+| `User-Agent` | Chromium 120 / macOS string |
+| `Accept` | Full browser MIME list (HTML → image/avif → `*/*`) |
+| `Accept-Language` | `en-US,en;q=0.9` |
+| `Cache-Control` | `no-cache` (first-visit behaviour) |
+| `Sec-Ch-Ua` | Chrome brand list — distinguishes from headless Chrome |
+| `Sec-Ch-Ua-Mobile` | `?0` — desktop |
+| `Sec-Ch-Ua-Platform` | `"macOS"` |
+| `Sec-Fetch-Dest` | `document` — top-level navigation |
+| `Sec-Fetch-Mode` | `navigate` |
+| `Sec-Fetch-Site` | `none` — direct URL entry |
+| `Sec-Fetch-User` | `?1` — user-gesture navigation |
+| `Upgrade-Insecure-Requests` | `1` |
 
-impl OutputMode {
-    pub async fn write_content(&self, url: &str, content: &str) -> Result<()> {
-        match self {
-            Self::Directory { base_path } => {
-                let file_path = url_to_file_path(url, base_path);
-                write_file_with_dirs(&file_path, content).await
-            },
-            Self::Packed { file_path } => {
-                append_with_header(file_path, url, content).await
-            },
-            // ... other modes
-        }
-    }
-}
-```
+**HTTP version** — libcurl negotiates HTTP/2 where available.  Forcing HTTP/1.1 is a detectable fingerprint rejected by CDNs such as Adobe Experience Manager.
 
-## Performance Optimizations
+**Retry on transient failures** — exponential backoff (1 s, 2 s, 4 s …) handles rate-limit (`429`) and temporary server errors (`503`).
 
-### 1. Adaptive Concurrency
+---
 
-Adjust concurrency based on system resources:
-- Use `num_cpus` for core count
-- Higher concurrency for I/O-bound operations
-- Cap maximum operations at 16
+## Performance
 
-### 2. Connection Reuse
+### Adaptive concurrency
 
-Reuse HTTP connections:
-- Pool connections for same domains
-- Keep connections alive between requests
-- Multiplex requests with HTTP/2
+Concurrency is set to `available_parallelism × 2` at startup — I/O-bound work benefits from more in-flight requests than CPU cores.
 
-### 3. Memory Management
+### Benchmark reference (local machine, 2024 M2 MacBook Pro)
 
-Efficient memory usage:
-- Stream processing instead of loading everything
-- Process URLs on demand
-- Clean up temporary resources
+These figures come from the `tests/benchmarks.rs` suite and are provided as a rough baseline; actual throughput depends on network latency and page size.
 
-### 4. Build Optimizations
+| Workload | Typical throughput |
+|----------|--------------------|
+| URL extraction (10 000 URLs from text) | < 5 ms |
+| Output path creation (1 000 paths) | < 1 ms |
+| HTML → Markdown (typical article, ~50 KB) | < 50 ms |
+| End-to-end (localhost mock server, 100 pages) | ~2–4 s |
 
-Release build optimizations:
+### Release-build optimisations
+
 ```toml
 [profile.release]
-lto = true                # Link-time optimization
-codegen-units = 1         # Single codegen unit for better optimization
-panic = "unwind"          # Stack unwinding for panic recovery
-strip = true              # Strip debug symbols
-opt-level = 3             # Maximum optimization
+lto = true          # Link-time optimisation — smaller, faster binary
+codegen-units = 1   # Single codegen unit for cross-crate inlining
+opt-level = 3       # Maximum LLVM optimisation
+strip = true        # Drop debug symbols to shrink binary
+panic = "unwind"    # Keep unwinding so panic recovery works
 ```
 
-## Error Handling Strategy
+---
 
-### Multi-Layer Error Handling
+## Error Handling
 
-1. **Network Layer**: Timeouts, DNS failures
-2. **Protocol Layer**: HTTP errors, redirects
-3. **Content Layer**: Parsing, encoding issues
-4. **File System Layer**: Permissions, disk space
+Errors flow through `anyhow::Error` and are never silently swallowed:
 
-### Error Recovery Mechanisms
+| Layer | Error type | Action |
+|-------|-----------|--------|
+| URL parsing | `url::ParseError` | Log + collect; skip URL |
+| Network | `curl::Error` | Retry up to `max_retries` with backoff |
+| HTTP status ≥ 400 | Status code | Retry or collect as failure |
+| Content-type ≠ HTML | Non-HTML MIME | Skip (not an error) |
+| File write | `std::io::Error` | Log + collect as failure |
 
-```rust
-#[derive(Debug)]
-pub enum ProcessingError {
-    NetworkError { url: String, cause: String, retry_count: u32 },
-    ParsingError { url: String, stage: String, cause: String },
-    FileSystemError { path: PathBuf, operation: String, cause: String },
-    ContentError { url: String, issue: String },
-}
+After the batch completes, all failures are returned to the caller as `Vec<(String, anyhow::Error)>` — individual failures never abort processing of remaining URLs.
 
-impl ProcessingError {
-    pub fn is_retryable(&self) -> bool {
-        matches!(self, 
-            Self::NetworkError { retry_count, .. } if *retry_count < MAX_RETRIES
-        )
-    }
-    
-    pub fn should_skip(&self) -> bool {
-        matches!(self, 
-            Self::ContentError { .. } | 
-            Self::ParsingError { .. }
-        )
-    }
-}
-```
+---
 
-### Panic Recovery
+## Build Metadata
 
-Recover from Monolith panics:
-```rust
-pub fn safe_clean_html(html: &str, url: &str) -> Result<String> {
-    std::panic::catch_unwind(|| {
-        monolith::clean(html, url, &get_monolith_options())
-    })
-    .map_err(|_| anyhow!("HTML cleaning panicked for URL: {}", url))?
-    .map_err(|e| anyhow!("Monolith error: {}", e))
-}
-```
-
-## Logging and Observability
-
-### Structured Logging
-
-Use `tracing` for structured logs:
-```rust
-#[tracing::instrument(skip(content), fields(url = %url, content_size = content.len()))]
-pub async fn process_content(url: &str, content: &str) -> Result<String> {
-    tracing::info!("Starting content processing");
-    
-    let cleaned = clean_html(content).await
-        .map_err(|e| {
-            tracing::error!(error = %e, "HTML cleaning failed");
-            e
-        })?;
-    
-    tracing::debug!(cleaned_size = cleaned.len(), "HTML cleaning completed");
-    
-    let markdown = convert_to_markdown(&cleaned).await?;
-    
-    tracing::info!(
-        markdown_size = markdown.len(),
-        "Content processing completed successfully"
-    );
-    
-    Ok(markdown)
-}
-```
-
-### Performance Metrics
-
-Track performance:
-- Request timing and throughput
-- Memory usage
-- Error rates
-- Retry statistics
-
-## Security Considerations
-
-### Input Validation
-
-- Strict URL format checking
-- Prevent path traversal attacks
-- Limit content size to prevent memory exhaustion
-
-### Network Security
-
-- Enable TLS certificate validation
-- Limit redirect count to prevent loops
-- Enforce request timeouts
-
-### File System Safety
+`build.rs` captures build-time information via the `built` crate:
 
 ```rust
-pub fn safe_output_path(base: &Path, url: &str) -> Result<PathBuf> {
-    let parsed_url = Url::parse(url)?;
-    let host = parsed_url.host_str()
-        .ok_or_else(|| anyhow!("Invalid host in URL"))?;
-    
-    // Sanitize path components
-    let path_segments: Vec<String> = parsed_url
-        .path_segments()
-        .unwrap_or_default()
-        .map(|s| sanitize_filename(s))
-        .filter(|s| !s.is_empty() && s != "." && s != "..")
-        .collect();
-    
-    let mut output_path = base.join(sanitize_filename(host));
-    for segment in path_segments {
-        output_path = output_path.join(segment);
-    }
-    
-    // Ensure path is within base directory
-    if !output_path.starts_with(base) {
-        return Err(anyhow!("Generated path outside base directory"));
-    }
-    
-    Ok(output_path.with_extension("md"))
-}
-```
-
-## Build System
-
-### Build Metadata Integration
-
-Embed build information:
-```rust
-// build.rs
-use built::write_built_file;
-
-fn main() {
-    write_built_file().expect("Failed to acquire build info");
-}
-
-// src/lib.rs  
 pub fn version() -> String {
     format!(
-        "{} (built {} for {})",
-        built_info::PKG_VERSION,
-        built_info::BUILT_TIME_UTC,
-        built_info::TARGET
+        "{}\nBuild Time: {}\nTarget: {}\nProfile: {}",
+        env!("CARGO_PKG_VERSION"),
+        BUILT_TIME_UTC,
+        TARGET,
+        PROFILE
     )
 }
 ```
 
-### Cross-Platform Builds
-
-Build for multiple targets:
-- **Linux**: x86_64, aarch64, musl
-- **macOS**: Intel and Apple Silicon
-- **Windows**: x86_64 MSVC
-
-### Dependency Management
-
-Choose dependencies carefully:
-- Use minimal, well-maintained crates
-- Optional features to reduce binary size
-- Balance updates with stability
-
-## Testing Architecture
-
-### Test Structure
-
-```
-tests/
-├── unit/           # Unit tests for individual components
-├── integration/    # Integration tests for workflows  
-├── fixtures/       # Test data and expected outputs
-└── benchmarks/     # Performance benchmarks
-```
-
-### Test Categories
-
-1. **Unit Tests**: Test individual components
-2. **Integration Tests**: Test end-to-end workflows
-3. **Performance Tests**: Benchmark critical paths
-4. **Compatibility Tests**: Test different formats and edge cases
+It also extracts the version from `git describe` so pre-release binaries carry a `1.4.7-dev.3.gabc1234` version string rather than the stale Cargo.toml value.
 
 ---
 
-**Design Philosophy**
-The architecture prioritizes:
+## Testing Architecture
 
-- **Reliability**: Handle errors gracefully
-- **Performance**: Process asynchronously and efficiently
-- **Maintainability**: Modular design with clear separation
-- **Extensibility**: Easy to add new formats
-- **User Experience**: Clear feedback and intuitive behavior
+```
+tests/
+├── unit/url_tests.rs       # URL extraction, output path generation
+├── integration/e2e_tests.rs # Full pipeline via mockito HTTP mock server
+├── common/mod.rs            # Shared helpers (temp dirs, fixture loading)
+├── fixtures/                # Static HTML inputs and expected Markdown
+└── benchmarks.rs            # Criterion-style timing assertions
+```
+
+The `src/` modules also carry inline `#[cfg(test)]` suites covering:
+
+- `src/lib.rs` — JSONL progress round-trips and crash-restart behaviour
+- `src/html.rs` — Local `file://` fetch, retry logic, non-HTML skipping
+- `src/markdown.rs` — Full HTML element coverage, Unicode, malformed input
+- `src/url.rs` — URL extraction edge cases, deduplication, base-URL resolution
+- `src/cli.rs` — Config creation, filename sanitisation, mixed-content input
+
+---
+
+**Design philosophy:** reliability first, then performance, then convenience.  The happy path is what remains after designing every failure mode.
